@@ -15,32 +15,39 @@ import asyncio
 from typing import Awaitable
 from typing import Callable
 from typing import List
-
 import asyncpg
-from opencensus.common.transports.async_ import AsyncTransport
-from opencensus.ext.stackdriver import trace_exporter as stackdriver_exporter
-import opencensus.trace.tracer as tracer
+import concurrent.futures
+from functools import partial
 
-tracer = tracer.Tracer(
-    exporter=stackdriver_exporter.StackdriverExporter(
-        project_id="kvg-testing",
-        transport=AsyncTransport
-    ),
-    sampler=tracer.samplers.AlwaysOnSampler()
-)
+import time
+from google.cloud import logging
+
+# Stackdriver init
+logging_client = logging.Client()
+log_name = 'transaction-latency'
+logger = logging_client.logger(log_name)
 
 ct = 0
 
+# This handles the extra thread which sends the log messages to
+# Stackdriver so it doesn't impact the time for the transaction to
+# complete
+executor = concurrent.futures.ProcessPoolExecutor(max_workers=3)
+
+def send_log(latency):
+    logger.log_text(str(latency))
 
 async def cloud_sql_transaction(pool: asyncpg.pool):
+    loop = asyncio.get_running_loop()
     """Performs a simple transaction with the provided pool. """
     global ct
-    with tracer.start_span("connection"):
-        async with pool.acquire() as con:
-            with tracer.start_span("transaction"):
-                await con.fetch("SELECT 1")
-            print("Transaction {} successful.".format(ct))
-            ct += 1
+    async with pool.acquire() as con:
+        t = time.time()
+        await con.fetch("SELECT 1")
+        t = (time.time() - t) * 1000
+        await loop.run_in_executor(executor, partial(send_log, latency=t))
+        ct += 1
+        print("Transaction {} successful. ({})".format(ct, t))
 
 
 async def schedule_at(start_time: float, func: Callable[[], Awaitable]):
@@ -62,9 +69,10 @@ def schedule_segment_load(
 async def main(load: List):
     pool = asyncpg.create_pool(
         host="127.0.0.1",
-        user="my-user",
-        password="my-password",
-        database="my_db",
+        port="5431",
+        user="gweiss",
+        password="gweiss",
+        database="next_data",
         min_size=5,
         max_size=5,
     )
@@ -84,12 +92,13 @@ async def main(load: List):
         # Wait for load to complete
         await asyncio.gather(*scheduled_actions)
         print("{} transactions completed.".format(len(scheduled_actions)))
+    executor.shutdown() # this appears to be a no-op
 
 
 if __name__ == "__main__":
     load = [
-        (10, 30),  # 10s @ 30 qps
-        (10, 60),  # 10s @ 60 qps
-        (10, 90),  # 10s @ 90 qps
+        (3, 30),  # 10s @ 30 qps
+        (3, 60),  # 10s @ 60 qps
+        (3, 90),  # 10s @ 90 qps
     ]
     asyncio.run(main(load))
