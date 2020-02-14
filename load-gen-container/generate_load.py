@@ -12,22 +12,81 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
-from typing import Awaitable
-from typing import Callable
-from typing import List
 import asyncpg
 import concurrent.futures
 from functools import partial
-
-import time
+import getopt
 from google.cloud import logging
+import os
+import sys
+import time
+from typing import Awaitable, Callable, List
+
+# static vars
+LOAD_INVALID        = -1
+LOAD_LOW_FREQUENCY  = 1
+LOAD_HIGH_FREQUENCY = 2
+LOAD_SPIKEY         = 3
+
+# These vars can/should be changed to suit environment
+DB_PORT  = os.environ.get("DB_PORT", 5432) # default to Postgres default
+DB_USER  = os.environ.get("DB_USER", None)
+DB_PASS  = os.environ.get("DB_PASS", None)
+DB_NAME  = os.environ.get("DB_NAME", None)
+LOAD_PATTERN = os.environ.get("PATTERN", LOAD_INVALID)
+POOL_MIN = 5
+POOL_MAX = 5
+
+
+fullCmdArguments = sys.argv
+argumentList = fullCmdArguments[1:]
+unixOptions = "hP:u:p:d:l:"
+gnuOptions = ["help", "port=", "user=", "passwd=", "dbname=", "load="]
+
+# probably don't NEED to do all this try/catch, but makes it easier to catch what/where goes wrong sometimes
+# this chunk is just handling arguments
+try:
+    arguments, values = getopt.getopt(argumentList, unixOptions, gnuOptions)
+except getopt.error as err:
+    print (str(err))
+    sys.exit(2)
+
+for currentArgument, currentValue in arguments:
+    if currentArgument in ("-h", "--help"):
+        print ("\nusage: python generate_load.py [-h | -P port | -u user | -p passwd | -d dbname | -l load]\nOptions and arguments (and corresponding environment variables):\n-d db\t: database name to connect to\n-h\t: display this help\n-l load\t: Load pattern enumeration value\n-p pwd\t: password for the database user\n-P port\t:db port to connect to, defaults to 5432\n-u usr\t: database user to connect with\n\nOther environment variables:\nDB_USER\t: database user to connect with. Overridden by the -u flag\nDB_PASS\t: database password. Overridden by the -p flag.\nDB_NAME\t: database to connect to. Overridden by the -d flag.\nLOAD_PATTERN : Type of traffic load to generate. Overridden by the -l flag.\n    Values:\n     1: Consistent low frequency\n     2: Consistent high frequency\n     3: Spikey\n")
+        sys.exit(0)
+
+    if currentArgument in ("-d", "--dbname"):
+        DB_NAME = currentValue
+    elif currentArgument in ("-u", "--user"):
+        DB_USER = currentValue
+    elif currentArgument in ("-p", "--passwd"):
+        DB_PASS = currentValue
+    elif currentArgument in ("-P", "--port"):
+        DB_PORT = currentValue
+    elif currentArgument in ("-l", "--load"):
+        LOAD_PATTERN = currentValue
+
+# Validation check to see if we're good to proceed
+if (DB_NAME == None or 
+  DB_USER == None or
+  DB_PASS == None or
+  LOAD_PATTERN == LOAD_INVALID):
+    print("\nInitialization failed, please be sure you're setting:\n DB_NAME,\n DB_USER,\n DB_PASS,\n LOAD_PATTERN\nin order to proceed.\n")
+    sys.exit(2)
+
+
+
+# These vars need to be consistent across all deployments
+LOG_LATENCY = 'transaction-latency'
+LOG_TRANSACTION_COUNT = 'transaction-count'
 
 # Stackdriver init
 logging_client = logging.Client()
-log_name = 'transaction-latency'
+log_name = LOG_LATENCY
 logger = logging_client.logger(log_name)
 
-ct = 0
+transact_count = 0
 
 # This handles the extra thread which sends the log messages to
 # Stackdriver so it doesn't impact the time for the transaction to
@@ -40,14 +99,14 @@ def send_log(latency):
 async def cloud_sql_transaction(pool: asyncpg.pool):
     loop = asyncio.get_running_loop()
     """Performs a simple transaction with the provided pool. """
-    global ct
+    global transact_count
     async with pool.acquire() as con:
         t = time.time()
         await con.fetch("SELECT 1")
         t = (time.time() - t) * 1000
         await loop.run_in_executor(executor, partial(send_log, latency=t))
-        ct += 1
-        print("Transaction {} successful. ({})".format(ct, t))
+        transact_count += 1
+        print("Transaction {} successful. ({})".format(transact_count, t))
 
 
 async def schedule_at(start_time: float, func: Callable[[], Awaitable]):
@@ -68,13 +127,13 @@ def schedule_segment_load(
 
 async def main(load: List):
     pool = asyncpg.create_pool(
-        host="127.0.0.1",
-        port="5431",
-        user="gweiss",
-        password="gweiss",
-        database="next_data",
-        min_size=5,
-        max_size=5,
+        host="127.0.0.1", # This doesn't change, we're using the proxy
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASS,
+        database=DB_NAME,
+        min_size=POOL_MIN,
+        max_size=POOL_MAX,
     )
 
     async with pool:
@@ -97,8 +156,8 @@ async def main(load: List):
 
 if __name__ == "__main__":
     load = [
-        (3, 30),  # 10s @ 30 qps
-        (3, 60),  # 10s @ 60 qps
-        (3, 90),  # 10s @ 90 qps
+        (3, 30),  # 3s @ 30 qps
+        (3, 60),  # 3s @ 60 qps
+        (3, 90),  # 3s @ 90 qps
     ]
     asyncio.run(main(load))
