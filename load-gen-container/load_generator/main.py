@@ -16,6 +16,7 @@ import asyncio
 from typing import Callable, Awaitable
 import configargparse
 from . import cloud_sql
+from .pubsub import PublishQueue
 
 
 async def delay_until(start_time: float, func: Callable[[], Awaitable]):
@@ -37,11 +38,12 @@ def schedule_segment(
 
 
 async def generate_load(args: configargparse.Namespace):
+    # Create a queue for publishing results
+    pubQueue = PublishQueue(args.pubsub_project, args.pubsub_topic)
+    
     # TODO(kvg): configurable load parameters
     load = [
-        (3, 30),  # 3s @ 30 qps
-        (3, 60),  # 3s @ 60 qps
-        (3, 90),  # 3s @ 90 qps
+        (10, 500),  # 3s @ 30 qps
     ]
 
     # Set the read / write transactions to use
@@ -50,7 +52,8 @@ async def generate_load(args: configargparse.Namespace):
         args = await cloud_sql.generate_transaction_args(
             args.host, args.port, args.database, args.user, args.password
         )
-        read = lambda: cloud_sql.read_transaction(*args)
+        def read():
+            cloud_sql.read_transaction(pubQueue, *args)
         # TODO(kvg) write patterns
 
     # Schedule the transactions to occur at the correct time.
@@ -70,6 +73,8 @@ async def generate_load(args: configargparse.Namespace):
 
     ct, total_time = len(transactions), (end_time - start_time)
     print(f"{ct} transactions completed over {total_time}s. Avg: {ct/total_time} tps")
+    
+    await pubQueue.wait_for_close()
 
 
 def main():
@@ -77,6 +82,8 @@ def main():
     parser.add_argument("-c", "--config", is_config_file=True)
 
     parser.add_argument("--target-type", required=True, choices=["cloud-sql"])
+    parser.add_argument("--pubsub_project", required=True, help="pubsub project id")
+    parser.add_argument("--pubsub_topic", required=True, help="pubsub topic id")
 
     cloud_sql_args = parser.add_argument_group("cloud-sql arguments")
     cloud_sql_args.add_argument(

@@ -18,6 +18,7 @@ import asyncio
 from typing import Awaitable, Tuple
 import asyncpg
 import random
+from .pubsub import PublishQueue
 
 POOL_SIZE = 20
 
@@ -39,12 +40,24 @@ async def generate_transaction_args(
     return (pool,)
 
 
-def read_transaction(pool: asyncpg.pool) -> Awaitable:
+def read_transaction(pubQueue: PublishQueue, pool: asyncpg.pool) -> Awaitable:
     stmt = random.choice(READ_STATEMENTS)
-    return run_transaction(pool, stmt)
+    return run_transaction(pubQueue, pool, stmt)
 
 
-async def run_transaction(pool: asyncpg.pool, statement: str):
+async def run_transaction(pubQueue: PublishQueue, pool: asyncpg.pool, statement: str):
     """Performs a simple transaction with the provided pool. """
+    loop = asyncio.get_running_loop()
+    conn_start = loop.time()
     async with pool.acquire() as con:
+        trans_start = loop.time()
         await con.fetch(statement)
+        trans_end = loop.time()
+    conn_stop = loop.time()
+    await pubQueue.insert({
+        "connection_start": conn_start,
+        "transaction_start": trans_start,
+        "transaction_end": trans_end,
+        "job_id": "12345",
+        "uuid": "12345"
+    })
