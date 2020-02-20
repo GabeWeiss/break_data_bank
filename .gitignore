@@ -1,5 +1,11 @@
 # Jetbrains IDE
 .idea/
 
+# Python
+__pycache__/
+
 # pyenv 
 .python-version
+
+# configs
+load-gen-container/config.yaml
