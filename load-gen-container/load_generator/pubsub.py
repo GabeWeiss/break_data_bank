@@ -50,15 +50,15 @@ class PublishQueue:
         topic_path = publisher.topic_path(project_id, topic_id)
 
         # Max amount of time between publishes
-        INTERVAL = 0.5
+        publish_interval = 0.5
 
         while True:  # run forever
             group = []
-            end_time = time.time() + INTERVAL
+            end_time = time.time() + publish_interval
             # group up notifications over INTERVAL amount of time
             while time.time() < end_time:
                 try:
-                    item = self._queue.get(block=True, timeout=INTERVAL)
+                    item = self._queue.get(block=True, timeout=publish_interval)
                     group.append(item)
                 except queue.Empty:
                     pass  # ignore errors from timeouts

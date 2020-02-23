@@ -14,15 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
+import logging
+import time
 from typing import Awaitable, Tuple
 import asyncpg
 import random
 from .pubsub import PublishQueue
+from .utils import Timer, time_until
+
+
+logger = logging.getLogger(__name__)
 
 POOL_SIZE = 20
-
-READ_STATEMENTS = ["SELECT 1"]
+TIMEOUT = 5
 
 
 async def generate_transaction_args(
@@ -40,25 +44,41 @@ async def generate_transaction_args(
     return (pool,)
 
 
-def read_transaction(pubQueue: PublishQueue, pool: asyncpg.pool) -> Awaitable:
+READ_STATEMENTS = ["SELECT 1"]
+
+
+def read_transaction(pub_queue: PublishQueue, pool: asyncpg.pool) -> Awaitable:
     stmt = random.choice(READ_STATEMENTS)
-    return run_transaction(pubQueue, pool, stmt)
+    return run_transaction(pub_queue, pool, stmt)
 
 
-async def run_transaction(pubQueue: PublishQueue, pool: asyncpg.pool, statement: str):
+async def run_transaction(
+    pub_queue: PublishQueue, pool: asyncpg.pool, statement: str, timeout: float = 5
+):
     """Performs a simple transaction with the provided pool. """
-    loop = asyncio.get_running_loop()
-    conn_start = loop.time()
-    async with pool.acquire() as con:
-        trans_start = loop.time()
-        await con.fetch(statement)
-        trans_end = loop.time()
-    conn_stop = loop.time()
-    await pubQueue.insert(
+    connection, transaction = Timer(), Timer()
+    # Run the operation without letting it exceed the timeout given
+    deadline = time.monotonic() + timeout
+    try:
+        with connection:  # Start the connection timer
+            time_left = deadline - connection.start
+            async with pool.acquire(timeout=time_left) as conn:
+                with transaction:  # Start transaction timer
+                    time_left = deadline - transaction.start
+                    await conn.fetch(statement, timeout=time_left)
+    except Exception as ex:
+        logger.warning("Transaction failed with exception: %s", ex)
+
+    await pub_queue.insert(
         {
-            "connection_start": conn_start,
-            "transaction_start": trans_start,
-            "transaction_end": trans_end,
+            "connection_start": connection.start,
+            "connection_end": connection.stop,
+            "transaction_start": transaction.start
+            if transaction.start
+            else connection.stop,
+            "transaction_end": transaction.stop
+            if transaction.stop
+            else connection.stop,
             "job_id": "12345",
             "uuid": "12345",
         }
