@@ -12,5 +12,5 @@ WORKDIR $APP_HOME
 COPY . .
 
 # Run the application
-CMD [ "python", "generate_load.py" ]
+ENTRYPOINT [ "python", "run_load_generator.py" ]
 
