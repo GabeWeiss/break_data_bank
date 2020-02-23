@@ -14,11 +14,15 @@
 
 import asyncio
 import json
+import logging
 import multiprocessing as mp
 import queue
 import time
 from typing import Any
 from google.cloud import pubsub
+
+
+logger = logging.getLogger(__name__)
 
 
 class PublishQueue:
@@ -33,7 +37,9 @@ class PublishQueue:
         self._process.start()
 
     async def insert(self, item: Any):
-        await asyncio.get_running_loop().run_in_executor(None, self._queue.put_nowait, item)
+        await asyncio.get_running_loop().run_in_executor(
+            None, self._queue.put_nowait, item
+        )
 
     async def wait_for_close(self):
         await asyncio.get_running_loop().run_in_executor(None, self._join)
@@ -42,10 +48,10 @@ class PublishQueue:
         # Create the pubsub topic for creating
         publisher = pubsub.PublisherClient()
         topic_path = publisher.topic_path(project_id, topic_id)
-        
+
         # Max amount of time between publishes
-        INTERVAL = .5
-        
+        INTERVAL = 0.5
+
         while True:  # run forever
             group = []
             end_time = time.time() + INTERVAL
@@ -56,9 +62,15 @@ class PublishQueue:
                     group.append(item)
                 except queue.Empty:
                     pass  # ignore errors from timeouts
-            
+
             if len(group) > 0:
-                publisher.publish(topic_path, data=json.dumps(group).encode('utf-8'))
+                try:
+                    publisher.publish(
+                        topic_path, data=json.dumps(group).encode("utf-8")
+                    )
+                    logger.debug("Published %s transactions.", len(group))
+                except Exception as ex:
+                    logger.warning("Error attempting to publish: %s", ex)
             elif self._exit_event.is_set():
                 # Exit if the flag is set and our work is finished
                 break

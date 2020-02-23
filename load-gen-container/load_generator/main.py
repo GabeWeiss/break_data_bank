@@ -13,10 +13,14 @@
 # limitations under the License.
 
 import asyncio
+import logging
 from typing import Callable, Awaitable
 import configargparse
 from . import cloud_sql
 from .pubsub import PublishQueue
+
+
+logger = logging.getLogger(__name__)
 
 
 async def delay_until(start_time: float, func: Callable[[], Awaitable]):
@@ -40,10 +44,10 @@ def schedule_segment(
 async def generate_load(args: configargparse.Namespace):
     # Create a queue for publishing results
     pubQueue = PublishQueue(args.pubsub_project, args.pubsub_topic)
-    
+
     # TODO(kvg): configurable load parameters
     load = [
-        (10, 500),  # 3s @ 30 qps
+        (10, 250),  # 3s @ 30 qps
     ]
 
     # Set the read / write transactions to use
@@ -52,9 +56,11 @@ async def generate_load(args: configargparse.Namespace):
         args = await cloud_sql.generate_transaction_args(
             args.host, args.port, args.database, args.user, args.password
         )
+
         def read():
-            cloud_sql.read_transaction(pubQueue, *args)
-        # TODO(kvg) write patterns
+            return cloud_sql.read_transaction(pubQueue, *args)
+
+        # TODO(kvg) write transaction
 
     # Schedule the transactions to occur at the correct time.
     # Delay by 1s to ensure scheduling doesn't compete for thread resources.
@@ -72,14 +78,19 @@ async def generate_load(args: configargparse.Namespace):
     end_time = asyncio.get_running_loop().time()
 
     ct, total_time = len(transactions), (end_time - start_time)
-    print(f"{ct} transactions completed over {total_time}s. Avg: {ct/total_time} tps")
-    
+    logger.info(
+        f"{ct} transactions completed over {total_time}s. Avg: {ct/total_time} tps"
+    )
+
     await pubQueue.wait_for_close()
 
 
 def main():
     parser = configargparse.ArgParser(default_config_files=["config.yaml"])
     parser.add_argument("-c", "--config", is_config_file=True)
+    parser.add_argument(
+        "-v", "--verbose", help="increase output verbosity", action="store_true"
+    )
 
     parser.add_argument("--target-type", required=True, choices=["cloud-sql"])
     parser.add_argument("--pubsub_project", required=True, help="pubsub project id")
@@ -101,5 +112,14 @@ def main():
         for flag in ["database", "user", "password"]:
             if getattr(args, flag) is None:
                 parser.exit(1, f"--{flag} is required for cloud-sql targets\n")
+
+    # Configure logging
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)7.7s] %(message)s")
+    )
+    root_logger = logging.getLogger("load_generator")
+    root_logger.addHandler(handler)
+    root_logger.setLevel(logging.INFO if not args.verbose else logging.DEBUG)
 
     asyncio.run(generate_load(args))

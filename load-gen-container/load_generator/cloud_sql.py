@@ -54,10 +54,12 @@ async def run_transaction(pubQueue: PublishQueue, pool: asyncpg.pool, statement:
         await con.fetch(statement)
         trans_end = loop.time()
     conn_stop = loop.time()
-    await pubQueue.insert({
-        "connection_start": conn_start,
-        "transaction_start": trans_start,
-        "transaction_end": trans_end,
-        "job_id": "12345",
-        "uuid": "12345"
-    })
+    await pubQueue.insert(
+        {
+            "connection_start": conn_start,
+            "transaction_start": trans_start,
+            "transaction_end": trans_end,
+            "job_id": "12345",
+            "uuid": "12345",
+        }
+    )
