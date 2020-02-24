@@ -19,8 +19,7 @@ import time
 from typing import Awaitable, Tuple
 import asyncpg
 import random
-from .pubsub import PublishQueue
-from .utils import Timer, time_until
+from .utils import Timer, OperationResults
 
 
 logger = logging.getLogger(__name__)
@@ -47,39 +46,34 @@ async def generate_transaction_args(
 READ_STATEMENTS = ["SELECT 1"]
 
 
-def read_transaction(pub_queue: PublishQueue, pool: asyncpg.pool) -> Awaitable:
+def read_operation(pool: asyncpg.pool) -> Awaitable[OperationResults]:
     stmt = random.choice(READ_STATEMENTS)
-    return run_transaction(pub_queue, pool, stmt)
+    return perform_operation(pool, "read", stmt)
 
 
-async def run_transaction(
-    pub_queue: PublishQueue, pool: asyncpg.pool, statement: str, timeout: float = 5
-):
+async def perform_operation(
+    pool: asyncpg.pool, operation: str, statement: str, timeout: float = 5
+) -> OperationResults:
     """Performs a simple transaction with the provided pool. """
-    connection, transaction = Timer(), Timer()
+    success, conn_timer, trans_timer = True, Timer(), Timer()
     # Run the operation without letting it exceed the timeout given
     deadline = time.monotonic() + timeout
     try:
-        with connection:  # Start the connection timer
-            time_left = deadline - connection.start
+        with conn_timer:  # Start the connection timer
+            time_left = deadline - conn_timer.start
             async with pool.acquire(timeout=time_left) as conn:
-                with transaction:  # Start transaction timer
-                    time_left = deadline - transaction.start
-                    await conn.fetch(statement, timeout=time_left)
+                with trans_timer:  # Start transaction timer
+                    time_left = deadline - conn_timer.start
+                    stmt = await conn.fetch(statement, timeout=time_left)
     except Exception as ex:
+        success = False
         logger.warning("Transaction failed with exception: %s", ex)
 
-    await pub_queue.insert(
-        {
-            "connection_start": connection.start,
-            "connection_end": connection.stop,
-            "transaction_start": transaction.start
-            if transaction.start
-            else connection.stop,
-            "transaction_end": transaction.stop
-            if transaction.stop
-            else connection.stop,
-            "job_id": "12345",
-            "uuid": "12345",
-        }
+    return (
+        operation,
+        success,
+        conn_timer.start,
+        conn_timer.stop,
+        trans_timer.start if trans_timer.start else conn_timer.stop,
+        trans_timer.stop if trans_timer.stop else conn_timer.stop,
     )

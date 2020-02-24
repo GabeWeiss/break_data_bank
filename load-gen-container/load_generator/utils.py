@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import functools
 import time
-from typing import Optional, Tuple
+from typing import Awaitable, Callable, Optional, Tuple
 
 # Convenience type for specifying return values of operation functions
-# returns action_type, success, conn_start, conn_end, transaction_start, transaction_end
+# returns operation, success, conn_start, conn_end, transaction_start, transaction_end
 OperationResults = Tuple[str, bool, float, float, float, float]
 
-
-def time_until(future: float) -> float:
-    """Returns the time in seconds until future is reached. """
-    return future - time.monotonic()
+# Convenience type for async operation functions
+AsyncOperation = Callable[[], Awaitable[OperationResults]]
 
 
 class Timer:
@@ -40,4 +40,3 @@ class Timer:
     def __exit__(self, type_, value, traceback):
         if not self.stop:
             self.stop = time.monotonic()
-        return self

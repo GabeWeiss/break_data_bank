@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class PublishQueue:
     """
-    Asyncio-aware queue for delivering Google PubSub notifications in a separate process.
+    Asyncio-aware queue for delivering PubSub notifications in a separate process.
     """
 
     def __init__(self, project_id: str, topic_id: str):
@@ -53,22 +53,20 @@ class PublishQueue:
         publish_interval = 0.5
 
         while True:  # run forever
-            group = []
+            grouping = []
             end_time = time.time() + publish_interval
             # group up notifications over INTERVAL amount of time
             while time.time() < end_time:
                 try:
                     item = self._queue.get(block=True, timeout=publish_interval)
-                    group.append(item)
+                    grouping.append(item)
                 except queue.Empty:
                     pass  # ignore errors from timeouts
 
-            if len(group) > 0:
+            if len(grouping) > 0:
                 try:
-                    publisher.publish(
-                        topic_path, data=json.dumps(group).encode("utf-8")
-                    )
-                    logger.debug("Published %s transactions.", len(group))
+                    publisher.publish(topic_path, data=json.dumps(grouping).encode("utf-8"))
+                    logger.debug("Published %s transactions.", len(grouping))
                 except Exception as ex:
                     logger.warning("Error attempting to publish: %s", ex)
             elif self._exit_event.is_set():

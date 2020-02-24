@@ -13,17 +13,20 @@
 # limitations under the License.
 
 import asyncio
+import functools
 import logging
-from typing import Callable, Awaitable
+from typing import Awaitable, Callable, List
+import uuid
 import configargparse
 from . import cloud_sql
 from .pubsub import PublishQueue
+from .utils import AsyncOperation
 
 
 logger = logging.getLogger(__name__)
 
 
-async def delay_until(start_time: float, func: Callable[[], Awaitable]):
+async def schedule_at(start_time: float, func: Callable[[], Awaitable]):
     """Helper function for calling a given function at a specific time."""
     now = asyncio.get_running_loop().time()
     await asyncio.sleep(start_time - now)
@@ -32,19 +35,35 @@ async def delay_until(start_time: float, func: Callable[[], Awaitable]):
 
 def schedule_segment(
     start_time: float, duration: float, rate: float, func: Callable[[], Awaitable]
-):
+) -> List[Awaitable]:
     """Schedules func() to be called a given rate over for given interval."""
     delta = 1.0 / rate  # gap between connections
     total_transactions = round(duration / delta)  # total number of transactions to run
     return [
-        delay_until(start_time + x * delta, func) for x in range(total_transactions)
+        schedule_at(start_time + x * delta, func) for x in range(total_transactions)
     ]
 
 
-async def generate_load(args: configargparse.Namespace):
-    # Create a queue for publishing results
-    pubQueue = PublishQueue(args.pubsub_project, args.pubsub_topic)
+def publish_results_from(pub_queue: PublishQueue, job_id: str, workload_id: str, operation: AsyncOperation):
+    """Function decorator to publish results after an operation is complete. """
+    async def publish_results():
+        results = await operation()
+        await pub_queue.insert({
+            "workload_id": workload_id,
+            "job_id": job_id,
+            "operation": results[0],
+            "success": results[1],
+            "connection_start": results[2],
+            "connection_end": results[3],
+            "transaction_start": results[4],
+            "transaction_end": results[5]
+        })
+    return publish_results
 
+
+async def generate_load(args: configargparse.Namespace):
+    job_id = str(uuid.uuid4())
+    
     # TODO(kvg): configurable load parameters
     load = [
         (10, 250),  # 3s @ 30 qps
@@ -53,14 +72,17 @@ async def generate_load(args: configargparse.Namespace):
     # Set the read / write transactions to use
     read, write = None, None
     if args.target_type == "cloud-sql":
-        args = await cloud_sql.generate_transaction_args(
+        op_args = await cloud_sql.generate_transaction_args(
             args.host, args.port, args.database, args.user, args.password
         )
 
-        def read():
-            return cloud_sql.read_transaction(pubQueue, *args)
+        read = functools.partial(cloud_sql.read_operation, *op_args)
 
         # TODO(kvg) write transaction
+
+    # Use pubsub to publish the results of each operation
+    pub_queue = PublishQueue(args.pubsub_project, args.pubsub_topic)
+    read = publish_results_from(pub_queue, args.workload_id, job_id, read)
 
     # Schedule the transactions to occur at the correct time.
     # Delay by 1s to ensure scheduling doesn't compete for thread resources.
@@ -82,7 +104,7 @@ async def generate_load(args: configargparse.Namespace):
         f"{ct} transactions completed over {total_time}s. Avg: {ct/total_time} tps"
     )
 
-    await pubQueue.wait_for_close()
+    await pub_queue.wait_for_close()
 
 
 def main():
@@ -92,6 +114,9 @@ def main():
         "-v", "--verbose", help="increase output verbosity", action="store_true"
     )
 
+    parser.add_argument(
+        "-w", "--workload-id", help="uuid for the workload"
+    )
     parser.add_argument("--target-type", required=True, choices=["cloud-sql"])
     parser.add_argument("--pubsub_project", required=True, help="pubsub project id")
     parser.add_argument("--pubsub_topic", required=True, help="pubsub topic id")
