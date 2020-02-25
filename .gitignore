@@ -3,6 +3,7 @@
 
 # Python
 __pycache__/
+*.pyc
 
 # pyenv 
 .python-version
@@ -15,3 +16,6 @@ load-gen-container/config.yaml
 
 # ensure we don't actually commit any service keys
 *.json
+
+# testing
+.pytest_cache
