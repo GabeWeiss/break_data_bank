@@ -1,14 +1,16 @@
+import asyncio
+import pytz
+import re
+import time
+from functools import wraps, partial
+
 from quart import Quart, request, jsonify, exceptions
 from quart.helpers import make_response
 from quart.flask_patch import abort
 from google.cloud import firestore
 
 
-from datetime import datetime, timedelta
-import re
-import pytz
-from functools import wraps, partial
-import asyncio
+
 
 app = Quart(__name__)
 
@@ -33,28 +35,29 @@ def check_required_params(req, keys):
     """
     for key in keys:
         if key not in req.keys():
-            abort(400)
+            return False
+    return True
 
 
 def validate_resource_id(res_id):
     """
     Helper to check if resource_id value is valid
     """
-    return res_id if re.match(r"^[a-z0-9-:]+$", res_id) else abort(400)
+    return True if re.match(r"^[a-z0-9-:]+$", res_id) else False
 
 
 def validate_db_size(db_size):
     """
     Helper to check if database_size value is valid
     """
-    return db_size if db_size in DB_SIZES else abort(400)
+    return True if db_size in DB_SIZES else False
 
 
 def validate_db_type(db_type):
     """
     Helper to check if database_type value is valid
     """
-    return db_type if db_type in DB_TYPES else abort(400)
+    return True if db_type in DB_TYPES else False
 
 
 def is_available(resource):
@@ -62,7 +65,7 @@ def is_available(resource):
     Helper to check if resource is available.
     """
     # TODO: change this to inspect "clean" property to find available resource
-    return resource.get("expiry") < datetime.now().replace(tzinfo=pytz.UTC)
+    return resource.get("expiry") < time.time()
 
 
 @run_function_in_executor
@@ -80,9 +83,7 @@ def lease(transaction, db_type, size, duration):
         if is_available(resource):
             res_ref = pool_ref.collection("resources").document(resource.id)
             # TODO: set "clean" boolean to false here
-            transaction.update(res_ref, {
-                "expiry": datetime.now() + timedelta(seconds=duration)}
-            )
+            transaction.update(res_ref, {"expiry": time.time() + duration })
             available = resource
             break
 
@@ -103,7 +104,7 @@ def add(transaction, db_type, size, resource_id):
         pool_ref = db.collection(db_type).document(size)
         resource_ref = pool_ref.collection("resources").document(resource_id)
         transaction.set(resource_ref,
-                        {"expiry": datetime.now() - timedelta(seconds=10)})
+                        {"expiry": time.time() - 10})
     else:
         raise exceptions.HTTPException(
             400, f"Resource {resource_id} already in pool", "Bad Request")
@@ -116,15 +117,23 @@ async def lease_resource():
     parameters and leases a resource if available.
     """
     req_data = await request.get_json()
-    check_required_params(
-        req_data, ["database_type", "database_size", "duration"])
+    
+    if not check_required_params(
+        req_data, ["database_type", "database_size", "duration"]):
+        return "Bad Request: Missing required parameter", 400
+    
+    if not validate_db_type(req_data["database_type"]):
+        return "Bad Request: Invalid database type", 400
+    
+    if not validate_db_size(req_data["database_size"]):
+        return "Bad Request: Invalid database size", 400
 
     with db.transaction() as transaction:
         try:
             leased_resource = await lease(
                 transaction,
-                validate_db_type(req_data["database_type"]),
-                validate_db_size(req_data["database_size"]),
+                req_data["database_type"],
+                req_data["database_size"],
                 req_data["duration"])
         except Exception as e:
             err = await make_response(
@@ -137,7 +146,7 @@ async def lease_resource():
 
     response = {
         "resource_id": leased_resource.id,
-        "expiration": leased_resource.get("expiry").timestamp()
+        "expiration": leased_resource.get("expiry")
     }
     return jsonify(response), 200
 
@@ -149,14 +158,25 @@ async def add_resource():
     parameters and adds a resource to the appropriate pool.
     """
     req_data = await request.get_json()
-    check_required_params(
-        req_data, ["database_type", "database_size", "resource_id"])
-    resource_id = validate_resource_id(req_data["resource_id"])
+    if not check_required_params(
+        req_data, ["database_type", "database_size", "resource_id"]):
+        return "Bad Request: Missing required parameter", 400
+
+    if not validate_db_type(req_data["database_type"]):
+        return "Bad Request: Invalid database type", 400
+    
+    if not validate_db_size(req_data["database_size"]):
+        return "Bad Request: Invalid database size", 400
+
+    if not validate_resource_id(req_data["resource_id"]):
+        return "Bad Request: Invalid resource_id", 400
+
+    resource_id = req_data["resource_id"]
     with db.transaction() as transaction:
         try:
             await add(transaction,
-                      validate_db_type(req_data["database_type"]),
-                      validate_db_size(req_data["database_size"]),
+                      req_data["database_type"],
+                      req_data["database_size"],
                       resource_id)
             return f"Successfully added resource {resource_id} to pool", 200
         except Exception as e:

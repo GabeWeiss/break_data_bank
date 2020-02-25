@@ -1,7 +1,8 @@
 import os
 import json
+import time
 from unittest import mock
-from datetime import datetime, timedelta
+
 
 import pytest
 from google.cloud import firestore
@@ -23,7 +24,7 @@ def use_test_db(monkeypatch):
 def resource_available(test_db):
     pool_ref = test_db.collection(
         "cloud-sql").document("1x").collection("resources")
-    pool_ref.add({"expiry": datetime.now() - timedelta(seconds=10)})
+    pool_ref.add({"expiry": time.time() - 10})
     yield
     for resource in pool_ref.stream():
         resource.reference.delete()
@@ -33,7 +34,7 @@ def resource_available(test_db):
 def resource_unavailable(test_db):
     pool_ref = test_db.collection(
         "cloud-sql").document("1x").collection("resources")
-    pool_ref.add({"expiry": datetime.now() + timedelta(hours=1)})
+    pool_ref.add({"expiry": time.time() + 3600})
     yield
     for resource in pool_ref.stream():
         resource.reference.delete()
