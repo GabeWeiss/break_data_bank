@@ -19,3 +19,6 @@ load-gen-container/config.yaml
 
 # testing
 .pytest_cache
+
+# vscode
+.vscode/

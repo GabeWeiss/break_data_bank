@@ -1,16 +1,11 @@
 import asyncio
-import pytz
 import re
 import time
 from functools import wraps, partial
 
 from quart import Quart, request, jsonify, exceptions
 from quart.helpers import make_response
-from quart.flask_patch import abort
 from google.cloud import firestore
-
-
-
 
 app = Quart(__name__)
 
@@ -20,7 +15,7 @@ DB_TYPES = ["cloud-sql", "cloud-sql-read-replica", "spanner"]
 DB_SIZES = ["1x", "2x", "3x"]
 
 
-def run_function_in_executor(func):
+def run_function_as_async(func):
     @wraps(func)
     async def wrapped_sync_function(*args, **kwargs):
         partial_func = partial(func, *args, **kwargs)
@@ -68,7 +63,7 @@ def is_available(resource):
     return resource.get("expiry") < time.time()
 
 
-@run_function_in_executor
+@run_function_as_async
 @firestore.transactional
 def lease(transaction, db_type, size, duration):
     """
@@ -83,14 +78,14 @@ def lease(transaction, db_type, size, duration):
         if is_available(resource):
             res_ref = pool_ref.collection("resources").document(resource.id)
             # TODO: set "clean" boolean to false here
-            transaction.update(res_ref, {"expiry": time.time() + duration })
+            transaction.update(res_ref, {"expiry": time.time() + duration})
             available = resource
             break
 
     return available
 
 
-@run_function_in_executor
+@run_function_as_async
 @firestore.transactional
 def add(transaction, db_type, size, resource_id):
     """
@@ -117,14 +112,14 @@ async def lease_resource():
     parameters and leases a resource if available.
     """
     req_data = await request.get_json()
-    
+
     if not check_required_params(
-        req_data, ["database_type", "database_size", "duration"]):
+            req_data, ["database_type", "database_size", "duration"]):
         return "Bad Request: Missing required parameter", 400
-    
+
     if not validate_db_type(req_data["database_type"]):
         return "Bad Request: Invalid database type", 400
-    
+
     if not validate_db_size(req_data["database_size"]):
         return "Bad Request: Invalid database size", 400
 
@@ -159,12 +154,12 @@ async def add_resource():
     """
     req_data = await request.get_json()
     if not check_required_params(
-        req_data, ["database_type", "database_size", "resource_id"]):
+            req_data, ["database_type", "database_size", "resource_id"]):
         return "Bad Request: Missing required parameter", 400
 
     if not validate_db_type(req_data["database_type"]):
         return "Bad Request: Invalid database type", 400
-    
+
     if not validate_db_size(req_data["database_size"]):
         return "Bad Request: Invalid database size", 400
 
@@ -184,4 +179,5 @@ async def add_resource():
                 f"An error occurred during the transaction: {e}", 500)
             return err
 
-app.run()
+if __name__ == '__main__':
+    app.run()
