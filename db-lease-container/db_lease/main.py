@@ -8,7 +8,7 @@ import google.cloud.exceptions
 from datetime import datetime, timedelta
 import re
 import pytz
-from functools import wraps
+from functools import wraps, partial
 import asyncio
 
 app = Quart(__name__)
@@ -17,6 +17,15 @@ db = firestore.Client()
 
 DB_TYPES = ["cloud-sql", "cloud-sql-read-replica", "spanner"]
 DB_SIZES = ["1x", "2x", "3x"]
+
+
+def run_function_in_executor(func):
+    @wraps(func)
+    async def wrapped_sync_function(*args, **kwargs):
+        partial_func = partial(func, *args, **kwargs)
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, partial_func)
+    return wrapped_sync_function
 
 
 def check_required_params(req, keys):
@@ -57,6 +66,7 @@ def is_available(resource):
     return resource.get("expiry") < datetime.now().replace(tzinfo=pytz.UTC)
 
 
+@run_function_in_executor
 @firestore.transactional
 def lease(transaction, db_type, size, duration):
     """
@@ -80,6 +90,7 @@ def lease(transaction, db_type, size, duration):
     return available
 
 
+@run_function_in_executor
 @firestore.transactional
 async def add(transaction, db_type, size, resource_id, ):
     """
@@ -112,7 +123,7 @@ async def lease_resource():
 
     with db.transaction() as transaction:
         try:
-            leased_resource = lease(
+            leased_resource = await lease(
                 transaction,
                 validate_db_type(req_data["database_type"]),
                 validate_db_size(req_data["database_size"]),
@@ -145,14 +156,15 @@ async def add_resource():
     resource_id = validate_resource_id(req_data["resource_id"])
     with db.transaction() as transaction:
         try:
-            add(transaction,
-                validate_db_type(req_data["database_type"]),
-                validate_db_size(req_data["database_size"]),
-                resource_id)
+            await add(transaction,
+                      validate_db_type(req_data["database_type"]),
+                      validate_db_size(req_data["database_size"]),
+                      resource_id)
         except Exception as e:
             err = await make_response(
                 f"An error occurred during the transaction: {e}", 500)
             return err
-    return f"Successfully added resource {resource_id} to pool", 200
+        else:
+            return f"Successfully added resource {resource_id} to pool", 200
 
 app.run()
