@@ -1,8 +1,7 @@
-from quart import Quart, request, jsonify
+from quart import Quart, request, jsonify, exceptions
 from quart.helpers import make_response
 from quart.flask_patch import abort
 from google.cloud import firestore
-import google.cloud.exceptions
 
 
 from datetime import datetime, timedelta
@@ -92,23 +91,22 @@ def lease(transaction, db_type, size, duration):
 
 @run_function_in_executor
 @firestore.transactional
-async def add(transaction, db_type, size, resource_id, ):
+def add(transaction, db_type, size, resource_id):
     """
     Adds a resource with the given id to the pool corresponding to the given
     database type and size if it doesn't already exist.
     """
     pool_ref = db.collection(db_type).document(size)
-    try:
-        pool_ref.collection("resources").document(resource_id).get(
+    snapshot = pool_ref.collection("resources").document(resource_id).get(
             transaction=transaction)
-    except google.cloud.exceptions.NotFound:
+    if not snapshot.exists:
         pool_ref = db.collection(db_type).document(size)
         resource_ref = pool_ref.collection("resources").document(resource_id)
         transaction.set(resource_ref,
                         {"expiry": datetime.now() - timedelta(seconds=10)})
     else:
-        err = make_response(f"Resource {resource_id} already in pool", 400)
-        abort(err)
+        raise exceptions.HTTPException(
+            400, f"Resource {resource_id} already in pool", "Bad Request")
 
 
 @app.route('/lease', methods=['POST'])
@@ -130,7 +128,7 @@ async def lease_resource():
                 req_data["duration"])
         except Exception as e:
             err = await make_response(
-                f"An error occurred during the transaction: {e}", 500)
+                f"An error occurred during the transaction: {e}", 400)
             return err
 
     if not leased_resource:
@@ -160,11 +158,10 @@ async def add_resource():
                       validate_db_type(req_data["database_type"]),
                       validate_db_size(req_data["database_size"]),
                       resource_id)
+            return f"Successfully added resource {resource_id} to pool", 200
         except Exception as e:
             err = await make_response(
                 f"An error occurred during the transaction: {e}", 500)
             return err
-        else:
-            return f"Successfully added resource {resource_id} to pool", 200
 
 app.run()
