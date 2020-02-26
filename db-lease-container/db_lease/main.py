@@ -3,7 +3,7 @@ import re
 import time
 from functools import wraps, partial
 
-from quart import Quart, request, jsonify, exceptions
+from quart import Quart, request, jsonify
 from quart.helpers import make_response
 from google.cloud import firestore
 
@@ -101,8 +101,7 @@ def add(transaction, db_type, size, resource_id):
         transaction.set(resource_ref,
                         {"expiry": time.time() - 10})
     else:
-        raise exceptions.HTTPException(
-            400, f"Resource {resource_id} already in pool", "Bad Request")
+        raise Exception(f"Resource {resource_id} already in pool")
 
 
 @app.route('/lease', methods=['POST'])

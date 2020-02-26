@@ -58,6 +58,24 @@ async def test_add_resource_to_pool(test_db):
 
 
 @pytest.mark.asyncio
+async def test_add_resource_already_exists(test_db):
+    client = app.test_client()
+    test_data = {
+        "resource_id": "test-project:us-west2:test-instance",
+        "database_type": "cloud-sql",
+        "database_size": "1x"}
+    headers = {"Content-Type": "application/json"}
+    with mock.patch("db_lease.main.db", test_db):
+        await client.post('/add', data=json.dumps(test_data), headers=headers)
+        response = await client.post('/add',
+                                     data=json.dumps(test_data),
+                                     headers=headers)
+    resp_data = await response.get_data()
+    assert ("An error occurred".encode() in resp_data)
+    assert (response.status_code == 500)
+
+
+@pytest.mark.asyncio
 async def test_lease_resource_when_available(test_db, resource_available):
     client = app.test_client()
     test_data = {
