@@ -9,3 +9,6 @@ __pycache__/
 
 # configs
 load-gen-container/config.yaml
+
+# MacOS
+.DS_Store
