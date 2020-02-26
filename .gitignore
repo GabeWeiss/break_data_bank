@@ -12,3 +12,6 @@ load-gen-container/config.yaml
 
 # MacOS
 .DS_Store
+
+# ensure we don't actually commit any service keys
+*.json
