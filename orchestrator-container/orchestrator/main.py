@@ -50,13 +50,18 @@ async def index():
         </ul>
     </body></html>"""
 
-async def do_run(db_type,
-                 db_size,
-                 read_pattern,
-                 write_pattern,
-                 read_intensity,
-                 write_intensity):
-    print("I'm ready to initiate the load generation here")
+async def fetch_resource_id(db_type, db_size):
+    # TODO: Fetch actual resource from service
+    return "0"
+
+async def do_run(db_type, db_size,
+                 read_pattern, read_intensity,
+                 write_pattern, write_intensity):
+        # Fetch a resource
+    resource_id = await fetch_resource_id(db_type, db_size)    
+
+        # Start load gen
+        # TODO: start load gen
 
 @app.route('/test', methods=['POST', 'GET'])
 async def test():
@@ -73,19 +78,16 @@ async def test():
     return '{}\n'.format(response), 200
 
 # sets job data on firestore and returns a job_id back to the caller
-async def set_firestore(db_type,
-                        db_size,
-                        read_pattern,
-                        write_pattern,
-                        read_intensity,
-                        write_intensity):
+async def set_firestore(db_type, db_size,
+                        read_pattern, read_intensity,
+                        write_pattern, write_intensity):
     new_jobs_document = db.collection(u'events').document(u'next2020').collection('jobs').document()
     new_jobs_document.set({
         u'db_type': db_type,
         u'db_size': db_size,
         u'read_pattern': read_pattern,
-        u'write_pattern': write_pattern,
         u'read_intensity': read_intensity,
+        u'write_pattern': write_pattern,
         u'write_intensity': write_intensity
     })
     return new_jobs_document.id
