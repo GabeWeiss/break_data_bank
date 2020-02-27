@@ -15,6 +15,7 @@
 import sys
 import time
 
+import asyncio
 from quart import Quart, websocket, jsonify, request
 
 import firebase_admin
@@ -55,7 +56,7 @@ async def do_run(db_type,
                  write_pattern,
                  read_intensity,
                  write_intensity):
-    print ("\n\nwat\n\n")
+    print("I'm ready to initiate the load generation here")
 
 @app.route('/test', methods=['POST', 'GET'])
 async def test():
@@ -71,15 +72,23 @@ async def test():
     }
     return '{}\n'.format(response), 200
 
-# sets job data on firestore and returns a job_id
+# sets job data on firestore and returns a job_id back to the caller
 async def set_firestore(db_type,
                         db_size,
                         read_pattern,
                         write_pattern,
                         read_intensity,
                         write_intensity):
-    jobs_collection = db.collection(u'events').document(u'next2020').collection('jobs')
-    #jobs_collection.add()
+    new_jobs_document = db.collection(u'events').document(u'next2020').collection('jobs').document()
+    new_jobs_document.set({
+        u'db_type': db_type,
+        u'db_size': db_size,
+        u'read_pattern': read_pattern,
+        u'write_pattern': write_pattern,
+        u'read_intensity': read_intensity,
+        u'write_intensity': write_intensity
+    })
+    return new_jobs_document.id
 
 # This is the entry point for the first run where we're
 # intentionally failing the Cloud SQL. Assumption currently
@@ -97,11 +106,16 @@ async def fail():
     except: 
         return "\nMissing a required parameter, please ensure you have everything in your POST method.\n", 400
 
-    jobs_id = await set_firestore(read_pattern, write_pattern, )
+    jobs_id = await set_firestore(CLOUD_SQL, 1, int(read_pattern), int(write_pattern), 3, 3)
 
-
-    #await do_run(1,2,3,4,5,6)
-    return '\n{}\n\n'.format(write_pattern), 200
+        # Using the event loop so we can initiate the load gen
+        # asynchronously while returning our id back to the 
+        # front-end so they can subscribe. MIGHT even need a small
+        # sleep here to give the front-end time to subscribe
+        # appropriately
+    loop = asyncio.get_event_loop()
+    loop.create_task(do_run(1,2,3,4,5,6))
+    return '{{ jobs_id: "{}" }}'.format(jobs_id), 200
 
 @app.route('/run', methods=['POST'])
 async def run():
