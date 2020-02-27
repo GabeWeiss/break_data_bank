@@ -1,5 +1,4 @@
 import asyncio
-import re
 import time
 from functools import wraps, partial
 
@@ -7,12 +6,11 @@ from quart import Quart, request, jsonify
 from quart.helpers import make_response
 from google.cloud import firestore
 
+from db_lease import helpers
+
 app = Quart(__name__)
 
 db = firestore.Client()
-
-DB_TYPES = ["cloud-sql", "cloud-sql-read-replica", "spanner"]
-DB_SIZES = ["1x", "2x", "3x"]
 
 
 def run_function_as_async(func):
@@ -22,45 +20,6 @@ def run_function_as_async(func):
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, partial_func)
     return wrapped_sync_function
-
-
-def check_required_params(req, keys):
-    """
-    Helper to check if all valid params are present
-    """
-    for key in keys:
-        if key not in req.keys():
-            return False
-    return True
-
-
-def validate_resource_id(res_id):
-    """
-    Helper to check if resource_id value is valid
-    """
-    return True if re.match(r"^[a-z0-9-:]+$", res_id) else False
-
-
-def validate_db_size(db_size):
-    """
-    Helper to check if database_size value is valid
-    """
-    return True if db_size in DB_SIZES else False
-
-
-def validate_db_type(db_type):
-    """
-    Helper to check if database_type value is valid
-    """
-    return True if db_type in DB_TYPES else False
-
-
-def is_available(resource):
-    """
-    Helper to check if resource is available.
-    """
-    # TODO: change this to inspect "clean" property to find available resource
-    return resource.get("expiry") < time.time()
 
 
 @run_function_as_async
@@ -75,7 +34,7 @@ def lease(transaction, db_type, size, duration):
     resources = query.stream(transaction=transaction)
     available = None
     for resource in resources:
-        if is_available(resource):
+        if helpers.is_available(resource):
             res_ref = pool_ref.collection("resources").document(resource.id)
             # TODO: set "clean" boolean to false here
             transaction.update(res_ref, {"expiry": time.time() + duration})
@@ -104,6 +63,11 @@ def add(transaction, db_type, size, resource_id):
         raise Exception(f"Resource {resource_id} already in pool")
 
 
+@app.route('/isitworking', methods=['GET'])
+def working():
+    return "It's working", 200
+
+
 @app.route('/lease', methods=['POST'])
 async def lease_resource():
     """
@@ -112,14 +76,14 @@ async def lease_resource():
     """
     req_data = await request.get_json()
 
-    if not check_required_params(
+    if not helpers.check_required_params(
             req_data, ["database_type", "database_size", "duration"]):
         return "Bad Request: Missing required parameter", 400
 
-    if not validate_db_type(req_data["database_type"]):
+    if not helpers.validate_db_type(req_data["database_type"]):
         return "Bad Request: Invalid database type", 400
 
-    if not validate_db_size(req_data["database_size"]):
+    if not helpers.validate_db_size(req_data["database_size"]):
         return "Bad Request: Invalid database size", 400
 
     with db.transaction() as transaction:
@@ -152,17 +116,17 @@ async def add_resource():
     parameters and adds a resource to the appropriate pool.
     """
     req_data = await request.get_json()
-    if not check_required_params(
+    if not helpers.check_required_params(
             req_data, ["database_type", "database_size", "resource_id"]):
         return "Bad Request: Missing required parameter", 400
 
-    if not validate_db_type(req_data["database_type"]):
+    if not helpers.validate_db_type(req_data["database_type"]):
         return "Bad Request: Invalid database type", 400
 
-    if not validate_db_size(req_data["database_size"]):
+    if not helpers.validate_db_size(req_data["database_size"]):
         return "Bad Request: Invalid database size", 400
 
-    if not validate_resource_id(req_data["resource_id"]):
+    if not helpers.validate_resource_id(req_data["resource_id"]):
         return "Bad Request: Invalid resource_id", 400
 
     resource_id = req_data["resource_id"]

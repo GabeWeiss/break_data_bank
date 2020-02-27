@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+
+# pyenv 
+.python-version
+
+# testing
+.pytest_cache
+
+# vscode
+.vscode/
