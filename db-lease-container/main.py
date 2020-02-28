@@ -17,7 +17,6 @@ import time
 from functools import wraps, partial
 
 from quart import Quart, request, jsonify
-from quart.helpers import make_response
 from google.cloud import firestore
 
 from db_lease import helpers
@@ -107,14 +106,13 @@ async def lease_resource():
                 req_data["database_type"],
                 req_data["database_size"],
                 req_data["duration"])
-        except Exception as e:
-            err = await make_response(
-                f"An error occurred during the transaction: {e}", 400)
-            return err
+        except Exception:
+            app.logger.exception("Error occurred during transaction:")
+            return f"Error occurred during transaction. See logs for info", 503
 
     if not leased_resource:
-        err = await make_response("All resources are currently in use", 503)
-        return err
+        app.logger.exception("All resources are currently in use")
+        return "All resources are currently in use", 503
 
     response = {
         "resource_id": leased_resource.id,
@@ -151,10 +149,10 @@ async def add_resource():
                       req_data["database_size"],
                       resource_id)
             return f"Successfully added resource {resource_id} to pool", 200
-        except Exception as e:
-            err = await make_response(
-                f"An error occurred during the transaction: {e}", 500)
-            return err
+        except Exception:
+            app.logger.exception("Error occurred during transaction:")
+            return f"Error occurred during transaction. See logs for info", 500
+
 
 if __name__ == '__main__':
     app.run()
