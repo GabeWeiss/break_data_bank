@@ -46,7 +46,7 @@ async def test_add_resource_to_pool(test_db):
     test_data = {
         "resource_id": "test-project:us-west2:test-instance",
         "database_type": "cloud-sql",
-        "database_size": "1x"}
+        "database_size": 1}
     headers = {"Content-Type": "application/json"}
     with mock.patch("main.db", test_db):
         response = await client.post('/add',
@@ -63,7 +63,7 @@ async def test_add_resource_already_exists(test_db):
     test_data = {
         "resource_id": "test-project:us-west2:test-instance",
         "database_type": "cloud-sql",
-        "database_size": "1x"}
+        "database_size": 1}
     headers = {"Content-Type": "application/json"}
     with mock.patch("main.db", test_db):
         await client.post('/add', data=json.dumps(test_data), headers=headers)
@@ -80,7 +80,7 @@ async def test_lease_resource_when_available(test_db, resource_available):
     client = app.test_client()
     test_data = {
         "database_type": "cloud-sql",
-        "database_size": "1x",
+        "database_size": 1,
         "duration": 300}
     headers = {"Content-Type": "application/json"}
     with mock.patch("main.db", test_db):
@@ -98,7 +98,7 @@ async def test_lease_resource_when_unavailable(test_db, resource_unavailable):
     client = app.test_client()
     test_data = {
         "database_type": "cloud-sql",
-        "database_size": "1x",
+        "database_size": 1,
         "duration": 300}
     headers = {"Content-Type": "application/json"}
     with mock.patch("main.db", test_db):
@@ -116,7 +116,7 @@ async def test_add_resource_logs_exceptions(test_db, caplog):
     test_data = {
         "resource_id": "test-project:us-west2:test",
         "database_type": "cloud-sql",
-        "database_size": "1x"}
+        "database_size": 1}
     headers = {"Content-Type": "application/json"}
     with mock.patch("main.db", test_db):
         await client.post('/add', data=json.dumps(test_data), headers=headers)
@@ -129,7 +129,7 @@ async def test_lease_resource_logs_exceptions(test_db, caplog):
     client = app.test_client()
     test_data = {
         "database_type": "cloud-sql",
-        "database_size": "1x",
+        "database_size": 1,
         "duration": 300}
     headers = {"Content-Type": "application/json"}
 

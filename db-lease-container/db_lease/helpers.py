@@ -17,7 +17,7 @@ import re
 import time
 
 DB_TYPES = ["cloud-sql", "cloud-sql-read-replica", "spanner"]
-DB_SIZES = ["1x", "2x", "3x"]
+DB_SIZES = {1: "1x", 2: "2x", 3: "3x"}
 
 
 def check_required_params(req, keys):
@@ -41,14 +41,14 @@ def validate_db_size(db_size):
     """
     Helper to check if database_size value is valid
     """
-    return True if db_size in DB_SIZES else False
+    return db_size in DB_SIZES.keys()
 
 
 def validate_db_type(db_type):
     """
     Helper to check if database_type value is valid
     """
-    return True if db_type in DB_TYPES else False
+    return db_type in DB_TYPES
 
 
 def is_available(resource):
