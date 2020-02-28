@@ -20,6 +20,7 @@ from quart import Quart, request, jsonify
 from google.cloud import firestore
 
 from db_lease import helpers
+from db_lease.helpers import DB_SIZES, DB_TYPES
 
 app = Quart(__name__)
 
@@ -42,7 +43,7 @@ def lease(transaction, db_type, size, duration):
     Finds the resource with the earliest expiry, and returns it if available.
     Returns None if no available resource is found.
     """
-    pool_ref = db.collection(db_type).document(helpers.DB_SIZES[size])
+    pool_ref = db.collection(DB_TYPES[db_type]).document(DB_SIZES[size])
     query = pool_ref.collection("resources").order_by("expiry").limit(1)
     resources = query.stream(transaction=transaction)
     available = None
@@ -64,7 +65,7 @@ def add(transaction, db_type, size, resource_id):
     Adds a resource with the given id to the pool corresponding to the given
     database type and size if it doesn't already exist.
     """
-    pool_ref = db.collection(db_type).document(helpers.DB_SIZES[size])
+    pool_ref = db.collection(DB_TYPES[db_type]).document(DB_SIZES[size])
     snapshot = pool_ref.collection("resources").document(resource_id).get(
             transaction=transaction)
     if not snapshot.exists:
@@ -76,6 +77,7 @@ def add(transaction, db_type, size, resource_id):
 
 
 @app.route('/isitworking', methods=['GET'])
+@app.route('/', methods=['GET'])
 def working():
     return "It's working", 200
 
