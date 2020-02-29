@@ -15,6 +15,8 @@
 import asyncio
 import functools
 import logging
+import math
+import time
 from typing import Awaitable, Callable, List
 import uuid
 import configargparse
@@ -44,26 +46,32 @@ def schedule_segment(
     ]
 
 
-def publish_results_from(pub_queue: PublishQueue, job_id: str, workload_id: str, operation: AsyncOperation):
+def publish_results_from(
+    pub_queue: PublishQueue, job_id: str, workload_id: str, operation: AsyncOperation
+):
     """Function decorator to publish results after an operation is complete. """
+
     async def publish_results():
         results = await operation()
-        await pub_queue.insert({
-            "workload_id": workload_id,
-            "job_id": job_id,
-            "operation": results[0],
-            "success": results[1],
-            "connection_start": results[2],
-            "connection_end": results[3],
-            "transaction_start": results[4],
-            "transaction_end": results[5]
-        })
+        await pub_queue.insert(
+            {
+                "workload_id": workload_id,
+                "job_id": job_id,
+                "operation": results[0],
+                "success": results[1],
+                "connection_start": results[2],
+                "connection_end": results[3],
+                "transaction_start": results[4],
+                "transaction_end": results[5],
+            }
+        )
+
     return publish_results
 
 
 async def generate_load(args: configargparse.Namespace):
     job_id = str(uuid.uuid4())
-    
+
     # TODO(kvg): configurable load parameters
     load = [
         (10, 250),  # 3s @ 30 qps
@@ -84,10 +92,12 @@ async def generate_load(args: configargparse.Namespace):
     pub_queue = PublishQueue(args.pubsub_project, args.pubsub_topic)
     read = publish_results_from(pub_queue, args.workload_id, job_id, read)
 
-    # Schedule the transactions to occur at the correct time.
-    # Delay by 1s to ensure scheduling doesn't compete for thread resources.
-    start_time = asyncio.get_running_loop().time() + 1.0
-    cur_time = start_time
+    # Convert from "off-the-wall" time to monotonic for consistency when timing
+    delay = args.delay_until - time.monotonic()
+    logger.info(f"Delaying load start until {args.delay_until} (~{delay:.4f}s)")
+
+    # Schedule the transactions to start processing at the correct time
+    cur_time, start_time = args.delay_until, args.delay_until
     transactions = []
     for seg in load:
         # Schedule connections that occur in the segment
@@ -114,12 +124,18 @@ def main():
         "-v", "--verbose", help="increase output verbosity", action="store_true"
     )
 
-    parser.add_argument(
-        "-w", "--workload-id", help="uuid for the workload"
-    )
+    parser.add_argument("-w", "--workload-id", help="uuid for the workload")
+
     parser.add_argument("--target-type", required=True, choices=["cloud-sql"])
     parser.add_argument("--pubsub_project", required=True, help="pubsub project id")
     parser.add_argument("--pubsub_topic", required=True, help="pubsub topic id")
+
+    parser.add_argument(
+        "--delay-until",
+        help="Time since epoch to schedule load start. If unset, defaults to the "
+        + "nearest whole second at least half a second into the future.",
+        type=float,
+    )
 
     cloud_sql_args = parser.add_argument_group("cloud-sql arguments")
     cloud_sql_args.add_argument(
@@ -131,6 +147,13 @@ def main():
     cloud_sql_args.add_argument("-p", "--password", help="database user password")
 
     args = parser.parse_args()
+
+    # Default to at least 1.5 into the future to account script start up time
+    if not args.delay_until:
+        # Use "time.time" for a consistent "off-the-wall" time between instances
+        args.delay_until = math.ceil(time.time() + 0.5)
+    # Switch to monotonic time from here on out for consistent timing
+    args.delay_until = time.monotonic() + (args.delay_until - time.time())
 
     # Validate Cloud SQL flags
     if args.target_type == "cloud-sql":
