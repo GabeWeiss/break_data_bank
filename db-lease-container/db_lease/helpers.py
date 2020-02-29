@@ -14,6 +14,8 @@
 
 import re
 import time
+import asyncio
+from functools import wraps, partial
 
 DB_TYPES = {1: "cloud-sql", 2: "cloud-sql-read-replica", 3: "spanner"}
 DB_SIZES = {1: "1x", 2: "2x", 3: "3x"}
@@ -54,5 +56,20 @@ def is_available(resource):
     """
     Helper to check if resource is available.
     """
-    # TODO: change this to inspect "clean" property to find available resource
+    return resource.get("status") == "ready"
+
+
+def is_expired(resource):
+    """
+    Helper to check if resource is available.
+    """
     return resource.get("expiry") < time.time()
+
+
+def run_function_as_async(func):
+    @wraps(func)
+    async def wrapped_sync_function(*args, **kwargs):
+        partial_func = partial(func, *args, **kwargs)
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, partial_func)
+    return wrapped_sync_function

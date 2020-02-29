@@ -11,30 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import asyncio
 import time
-from functools import wraps, partial
 
 from quart import Quart, request, jsonify
 from google.cloud import firestore
 
 from db_lease import helpers
-from db_lease.helpers import DB_SIZES, DB_TYPES
+from db_lease.helpers import DB_SIZES, DB_TYPES, run_function_as_async
+from db_lease import db_clean
 
 app = Quart(__name__)
 
 db = firestore.Client()
-
-
-def run_function_as_async(func):
-    @wraps(func)
-    async def wrapped_sync_function(*args, **kwargs):
-        partial_func = partial(func, *args, **kwargs)
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, partial_func)
-
-    return wrapped_sync_function
 
 
 @run_function_as_async
@@ -57,8 +46,10 @@ def lease(transaction, db_type, size, duration):
     for resource in resources:
         if helpers.is_available(resource):
             res_ref = pool_ref.document(resource.id)
-            # TODO: set "clean" boolean to false here
-            transaction.update(res_ref, {"expiry": time.time() + duration})
+            transaction.update(res_ref, {
+                "expiry": time.time() + duration,
+                "status": "leased"
+                })
             available = resource
             break
 
@@ -82,13 +73,21 @@ def add(transaction, db_type, size, resource_id):
     snapshot = pool_ref.document(resource_id).get(transaction=transaction)
     if not snapshot.exists:
         resource_ref = pool_ref.document(resource_id)
-        transaction.set(resource_ref, {"expiry": time.time() - 10})
+        transaction.set(resource_ref, {"expiry": time.time() - 10,
+                                       "database_type": DB_TYPES[db_type],
+                                       "status": "ready"})
     else:
         raise Exception(f"Resource {resource_id} already in pool")
 
 
-@app.route("/isitworking", methods=["GET"])
-@app.route("/", methods=["GET"])
+@app.before_first_request
+async def clear_databases():
+    loop = asyncio.get_event_loop()
+    loop.create_task(db_clean.clean_instances(db, app.logger))
+
+
+@app.route('/isitworking', methods=['GET'])
+@app.route('/', methods=['GET'])
 def working():
     return "It's working", 200
 

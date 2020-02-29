@@ -28,7 +28,7 @@ def resource_available(test_db):
         .document("1x")
         .collection("resources")
     )
-    pool_ref.add({"expiry": time.time() - 10})
+    pool_ref.add({"expiry": time.time() - 10, "status": "ready"})
     yield
     for resource in pool_ref.stream():
         resource.reference.delete()
@@ -43,14 +43,28 @@ def resource_unavailable(test_db):
         .document("1x")
         .collection("resources")
     )
-    pool_ref.add({"expiry": time.time() + 3600})
+    pool_ref.add({"expiry": time.time() + 3600, "status": "leased"})
+    yield
+    for resource in pool_ref.stream():
+        resource.reference.delete()
+
+
+@pytest.fixture()
+def cleanup_db(test_db):
+    pool_ref = (
+        test_db.collection("db_resources")
+        .document("cloud-sql")
+        .collection("sizes")
+        .document("1x")
+        .collection("resources")
+    )
     yield
     for resource in pool_ref.stream():
         resource.reference.delete()
 
 
 @pytest.mark.asyncio
-async def test_add_resource_to_pool(test_db):
+async def test_add_resource_to_pool(test_db, cleanup_db):
     client = app.test_client()
     test_data = {
         "resource_id": "test-project:us-west2:test-instance",
@@ -140,5 +154,6 @@ async def test_lease_resource_logs_exceptions(test_db, caplog):
         side_effect=Exception("Transaction failed! Please try again.")
     )
     with mock.patch("main.db", test_db), mock.patch("main.lease", mock_lease):
-        await client.post("/lease", data=json.dumps(test_data), headers=headers)
+        await client.post(
+            "/lease", data=json.dumps(test_data), headers=headers)
     assert "Transaction failed! Please try again." in caplog.text
