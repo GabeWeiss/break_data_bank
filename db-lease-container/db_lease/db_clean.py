@@ -22,7 +22,9 @@ DB_CLEANUP_INTERVAL = 1
 
 
 @run_function_as_async
-def get_expired_resouces(db: firestore.Client):
+@firestore.transactional
+def get_expired_resouces(transaction: firestore.Transaction,
+                         db: firestore.Client()):
     """
     Queries Firestore for all resources that are expired, but not ready
     to return to the pool
@@ -30,6 +32,19 @@ def get_expired_resouces(db: firestore.Client):
     query = db.collection_group("resources").where(
         "expiry", "<", time.time()).where("status", "==", "leased")
     return query.stream()
+
+
+@run_function_as_async
+@firestore.transactional
+def set_status_to_ready(
+            transaction: firestore.Transaction,
+            db: firestore.Client(),
+            db_type: str,
+            db_size: str,
+            resource_id: str):
+    resource_ref = db.collection(db_type).document(db_size).collection(
+            "resources").document(resource_id)
+    transaction.update(resource_ref, {"status": "ready"})
 
 
 @run_function_as_async
@@ -51,13 +66,22 @@ def clean_spanner_instance(resource_id: str, logger: logging.Logger):
 
 
 async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
-    conn = await asyncpg.connect(
-        host=f'/cloudsql/{resource_id}/',
-        port=5432,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-    )
+    if os.getenv("PROD") == 1:
+        conn = await asyncpg.connect(
+            host=f'/cloudsql/{resource_id}/.s.PGSQL.5432',
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+        )
+    # Connect with TCP when testing locally
+    else:
+        conn = await asyncpg.connect(
+                host="127.0.0.1",
+                port="5432",
+                database=DB_NAME,
+                user=DB_USER,
+                password=DB_PASSWORD,
+        )
     # Drop the schema to drop all tables
     # (would probably be better to use a schema other than public)
     await conn.execute("DROP SCHEMA public CASCADE")
@@ -69,6 +93,7 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
     for statement in DDL_STATEMENTS:
         await conn.execute(statement)
     logger.info(f"Recreated tables for db {DB_NAME} in instance {resource_id}")
+    await conn.close()
 
 
 async def clean_instances(
@@ -82,10 +107,15 @@ async def clean_instances(
     while True:
         await asyncio.sleep(interval)
         try:
-            for resource in await get_expired_resouces(db):
-                if resource.get("database_type") == "spanner":
-                    await clean_spanner_instance(resource.id)
-                elif "cloud-sql" in resource.get("database_type"):
-                    await clean_cloud_sql_instance(resource.id)
+            with db.transaction() as transaction:
+                for resource in await get_expired_resouces(transaction, db):
+                    db_type = resource.get("database_type")
+                    db_size = resource.get("database_size")
+                    if db_type == "spanner":
+                        await clean_spanner_instance(resource.id, logger)
+                    elif "cloud-sql" in db_type:
+                        await clean_cloud_sql_instance(resource.id, logger)
+                    await set_status_to_ready(transaction, db, db_type,
+                                              db_size, resource.id)
         except Exception:
             logger.exception("An error occured while clearing databases:")

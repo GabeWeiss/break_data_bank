@@ -75,6 +75,7 @@ def add(transaction, db_type, size, resource_id):
         resource_ref = pool_ref.document(resource_id)
         transaction.set(resource_ref, {"expiry": time.time() - 10,
                                        "database_type": DB_TYPES[db_type],
+                                       "database_size": DB_SIZES[size],
                                        "status": "ready"})
     else:
         raise Exception(f"Resource {resource_id} already in pool")

@@ -1,23 +1,13 @@
-import os
 import json
 import time
 from unittest import mock
 
 
 import pytest
-from google.cloud import firestore
 
 from main import app
 
 test_app = app.test_client()
-
-
-@pytest.fixture(name="test_db", autouse=True)
-def use_test_db(monkeypatch):
-    test_credentials = os.getenv("TEST_PROJECT_CREDENTIALS")
-    monkeypatch.setenv("GOOGLE_APPLICATION_CREDENTIALS", test_credentials)
-    test_db = firestore.Client()
-    yield test_db
 
 
 @pytest.fixture()
@@ -28,7 +18,10 @@ def resource_available(test_db):
         .document("1x")
         .collection("resources")
     )
-    pool_ref.add({"expiry": time.time() - 10, "status": "ready"})
+    pool_ref.add({"expiry": time.time() - 10,
+                  "status": "ready",
+                  "database_type": "cloud-sql",
+                  "database_size": "1x"})
     yield
     for resource in pool_ref.stream():
         resource.reference.delete()
