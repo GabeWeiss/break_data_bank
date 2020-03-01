@@ -12,14 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from quart import Quart
 
-from .base import base
+DB_NAME: my-db-name
+DB_USER: my-db-user
+DB_PASSWORD: my-db-password
 
-
-def create_app(config="config.yaml"):
-    app = Quart("load-gen-service")
-    app.config.from_pyfile("config.yaml")
-    app.register_blueprint(base)
-
-    return app
+PUBSUB_TOPIC: my-pubsub-topic
+PUBSUB_PROJECT: my-pubsub-project
