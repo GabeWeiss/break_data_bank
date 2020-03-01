@@ -1,24 +1,16 @@
-# Jetbrains IDE
+# MacOS
+.DS_Store
+
+# IDEs
 .idea/
+.vscode/
 
 # Python
 __pycache__/
 *.pyc
-
-# pyenv 
+.pytest_cache
 .python-version
 
-# configs
-load-gen-container/config.yaml
-
-# MacOS
-.DS_Store
-
-# ensure we don't actually commit any service keys
+# configs / service accounts
+load-gen-script/config.yaml
 *.json
-
-# testing
-.pytest_cache
-
-# vscode
-.vscode/

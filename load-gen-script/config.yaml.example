@@ -17,6 +17,9 @@
 
 # target-type: cloud-sql
 
-# database: my_db
-# user: my-user
-#password: my-password
+# database: <YOUR-DB-NAME>
+# user: <YOUR-DB-USER>
+# password: <YOUR-DB-PASSWORD>
+
+# pubsub_project: <YOUR-PROJECT>
+# pubsub_topic: <YOUR-TOPIC>
