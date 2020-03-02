@@ -22,9 +22,7 @@ DB_CLEANUP_INTERVAL = 1
 
 
 @run_function_as_async
-@firestore.transactional
-def get_expired_resouces(transaction: firestore.Transaction,
-                         db: firestore.Client()):
+def get_expired_resouces(db: firestore.Client):
     """
     Queries Firestore for all resources that are expired, but not ready
     to return to the pool
@@ -35,16 +33,14 @@ def get_expired_resouces(transaction: firestore.Transaction,
 
 
 @run_function_as_async
-@firestore.transactional
 def set_status_to_ready(
-            transaction: firestore.Transaction,
-            db: firestore.Client(),
+            db: firestore.Client,
             db_type: str,
             db_size: str,
             resource_id: str):
     resource_ref = db.collection(db_type).document(db_size).collection(
             "resources").document(resource_id)
-    transaction.update(resource_ref, {"status": "ready"})
+    resource_ref.update({"status": "ready"})
 
 
 @run_function_as_async
@@ -107,15 +103,15 @@ async def clean_instances(
     while True:
         await asyncio.sleep(interval)
         try:
-            with db.transaction() as transaction:
-                for resource in await get_expired_resouces(transaction, db):
-                    db_type = resource.get("database_type")
-                    db_size = resource.get("database_size")
-                    if db_type == "spanner":
-                        await clean_spanner_instance(resource.id, logger)
-                    elif "cloud-sql" in db_type:
-                        await clean_cloud_sql_instance(resource.id, logger)
-                    await set_status_to_ready(transaction, db, db_type,
-                                              db_size, resource.id)
+            resources = await get_expired_resouces(db)
+            for resource in resources:
+                db_type = resource.get("database_type")
+                db_size = resource.get("database_size")
+                if db_type == "spanner":
+                    await clean_spanner_instance(resource.id, logger)
+                elif "cloud-sql" in db_type:
+                    await clean_cloud_sql_instance(resource.id, logger)
+                await set_status_to_ready(db, db_type,
+                                          db_size, resource.id)
         except Exception:
             logger.exception("An error occured while clearing databases:")

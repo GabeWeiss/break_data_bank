@@ -1,6 +1,7 @@
 import os
 import asyncio
 import json
+import logging
 import time
 from unittest import mock
 
@@ -24,14 +25,14 @@ def add_cloudsql_instance(test_db):
 
 @pytest.mark.asyncio
 async def test_cloud_sql_instance_is_cleaned(
-        test_db, add_cloudsql_instance, cleanup_db):
+        test_db, add_cloudsql_instance, cleanup_db, caplog):
     client = app.test_client()
     test_data = {
         "database_type": 1,
         "database_size": 1,
         "duration": 3}
     headers = {"Content-Type": "application/json"}
-    with mock.patch("main.db", test_db):
+    with mock.patch("main.db", test_db), caplog.at_level(logging.INFO):
         response = await client.post('/lease',
                                      data=json.dumps(test_data),
                                      headers=headers)
@@ -41,6 +42,10 @@ async def test_cloud_sql_instance_is_cleaned(
         assert(snapshot.get("status") == "leased")
 
         await asyncio.sleep(6)
+
+        assert("Dropped schema" in caplog.text)
+        assert("Recreated schema" in caplog.text)
+        assert("Recreated tables" in caplog.text)
 
         snapshot = pool_ref.collection("resources").document(resource_id).get()
         assert(snapshot.get("status") == "ready")
