@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+}
+
+apply plugin: 'java'
+apply plugin: 'maven'
+
+group 'com.google.devrel.breaking'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    beamVersion = '2.19.0'
+}
+
+dependencies {
+    compile 'commons-lang:commons-lang:2.3'
+
+    // Beam Dependencies
+    compile group: 'org.apache.beam', name: 'beam-sdks-java-core', version: "${beamVersion}"
+    compile group: 'org.apache.beam', name: 'beam-runners-google-cloud-dataflow-java', version: "${beamVersion}"
+    compile group: 'org.apache.beam', name: 'beam-runners-direct-java', version: "${beamVersion}"
+    compile group: 'org.apache.beam', name: 'beam-sdks-java-extensions-sql', version:  "${beamVersion}"
+
+    // Firestore
+    compile 'com.google.firebase:firebase-admin:6.12.2'
+
+    // BigQuery direct client
+    compile 'com.google.cloud:google-cloud-bigquery:1.88.0'
+
+
+    // Testing tools
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    // https://mvnrepository.com/artifact/org.hamcrest/hamcrest-all
+    testCompile group: 'org.hamcrest', name: 'hamcrest-all', version: '1.3'
+}
