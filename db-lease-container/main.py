@@ -174,5 +174,14 @@ async def add_resource():
             return f"Error occurred during transaction. See logs for info", 500
 
 
+@app.route('/force-clean', methods=['POST'])
+async def force_clean():
+    """
+    Endpoint to force the database cleaning task to run
+    """
+    db_clean.clean_instances(db, app.logger)
+
+
 if __name__ == "__main__":
     app.run(host="localhost",port="5003")
+
