@@ -51,7 +51,7 @@ import org.apache.beam.sdk.values.*;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 
-public class ExampleJavaProcess {
+public class BreakingDataTransactions {
 
   static Boolean REAL = true;
 
