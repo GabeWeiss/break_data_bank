@@ -43,13 +43,13 @@ def lease(transaction, db_type, size, duration):
     Finds the resource with the earliest expiry, and returns it if available.
     Returns None if no available resource is found.
     """
-    pool_ref = db.collection(DB_TYPES[db_type]).document(DB_SIZES[size])
-    query = pool_ref.collection("resources").order_by("expiry").limit(1)
+    pool_ref = db.collection("db_resources").document(DB_TYPES[db_type]).collection(DB_SIZES[size])
+    query = pool_ref.order_by("expiry").limit(1)
     resources = query.stream(transaction=transaction)
     available = None
     for resource in resources:
         if helpers.is_available(resource):
-            res_ref = pool_ref.collection("resources").document(resource.id)
+            res_ref = pool_ref.document(resource.id)
             # TODO: set "clean" boolean to false here
             transaction.update(res_ref, {"expiry": time.time() + duration})
             available = resource
@@ -65,11 +65,11 @@ def add(transaction, db_type, size, resource_id):
     Adds a resource with the given id to the pool corresponding to the given
     database type and size if it doesn't already exist.
     """
-    pool_ref = db.collection(DB_TYPES[db_type]).document(DB_SIZES[size])
-    snapshot = pool_ref.collection("resources").document(resource_id).get(
+    pool_ref = db.collection("db_resources").document(DB_TYPES[db_type]).collection(DB_SIZES[size])
+    snapshot = pool_ref.document(resource_id).get(
             transaction=transaction)
     if not snapshot.exists:
-        resource_ref = pool_ref.collection("resources").document(resource_id)
+        resource_ref = pool_ref.document(resource_id)
         transaction.set(resource_ref,
                         {"expiry": time.time() - 10})
     else:
