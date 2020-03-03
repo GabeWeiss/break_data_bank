@@ -18,9 +18,19 @@ from quart import Blueprint, current_app as app, request
 
 base = Blueprint("base", __name__)
 
-# Setup k8s client
-config.load_kube_config()
-batch_v1 = client.BatchV1Api()
+_k8s_batch_client: client = None
+
+
+@base.before_app_first_request
+async def _init_client():
+    global _k8s_batch_client
+    if app.config["ENV"] != "production":
+        # Use local k8s config
+        config.load_kube_config()
+    else:
+        # Use in-pod config
+        config.load_incluster_config()
+    _k8s_batch_client = client.BatchV1Api()
 
 
 @base.route("/", methods=["GET"])
@@ -92,5 +102,6 @@ async def create_load_gen_job():
         ),
     )
 
-    batch_v1.create_namespaced_job(body=job, namespace="default")
+    # TODO: Make this call async
+    _k8s_batch_client.create_namespaced_job(body=job, namespace="default")
     return "OK", 200
