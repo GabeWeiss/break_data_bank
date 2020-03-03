@@ -33,6 +33,7 @@ def run_function_as_async(func):
         partial_func = partial(func, *args, **kwargs)
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, partial_func)
+
     return wrapped_sync_function
 
 
@@ -43,7 +44,13 @@ def lease(transaction, db_type, size, duration):
     Finds the resource with the earliest expiry, and returns it if available.
     Returns None if no available resource is found.
     """
-    pool_ref = db.collection("db_resources").document(DB_TYPES[db_type]).collection(DB_SIZES[size])
+    pool_ref = (
+        db.collection("db_resources")
+        .document(DB_TYPES[db_type])
+        .collection("sizes")
+        .document(DB_SIZES[size])
+        .collection("resources")
+    )
     query = pool_ref.order_by("expiry").limit(1)
     resources = query.stream(transaction=transaction)
     available = None
@@ -65,24 +72,28 @@ def add(transaction, db_type, size, resource_id):
     Adds a resource with the given id to the pool corresponding to the given
     database type and size if it doesn't already exist.
     """
-    pool_ref = db.collection("db_resources").document(DB_TYPES[db_type]).collection(DB_SIZES[size])
-    snapshot = pool_ref.document(resource_id).get(
-            transaction=transaction)
+    pool_ref = (
+        db.collection("db_resources")
+        .document(DB_TYPES[db_type])
+        .collection("sizes")
+        .document(DB_SIZES[size])
+        .collection("resources")
+    )
+    snapshot = pool_ref.document(resource_id).get(transaction=transaction)
     if not snapshot.exists:
         resource_ref = pool_ref.document(resource_id)
-        transaction.set(resource_ref,
-                        {"expiry": time.time() - 10})
+        transaction.set(resource_ref, {"expiry": time.time() - 10})
     else:
         raise Exception(f"Resource {resource_id} already in pool")
 
 
-@app.route('/isitworking', methods=['GET'])
-@app.route('/', methods=['GET'])
+@app.route("/isitworking", methods=["GET"])
+@app.route("/", methods=["GET"])
 def working():
     return "It's working", 200
 
 
-@app.route('/lease', methods=['POST'])
+@app.route("/lease", methods=["POST"])
 async def lease_resource():
     """
     Route handler which takes database type, database size, and duration as
@@ -94,7 +105,8 @@ async def lease_resource():
         return "Bad Request: Missing required parameters", 400
 
     if not helpers.check_required_params(
-            req_data, ["database_type", "database_size", "duration"]):
+        req_data, ["database_type", "database_size", "duration"]
+    ):
         return "Bad Request: Missing required parameter", 400
 
     if not helpers.validate_db_type(req_data["database_type"]):
@@ -109,7 +121,8 @@ async def lease_resource():
                 transaction,
                 req_data["database_type"],
                 req_data["database_size"],
-                req_data["duration"])
+                req_data["duration"],
+            )
         except Exception:
             app.logger.exception("Error occurred during transaction:")
             return f"Error occurred during transaction. See logs for info", 503
@@ -120,12 +133,12 @@ async def lease_resource():
 
     response = {
         "resource_id": leased_resource.id,
-        "expiration": leased_resource.get("expiry")
+        "expiration": leased_resource.get("expiry"),
     }
     return jsonify(response), 200
 
 
-@app.route('/add', methods=['POST'])
+@app.route("/add", methods=["POST"])
 async def add_resource():
     """
     Route handler which takes database type, database size, and resource_id as
@@ -133,7 +146,8 @@ async def add_resource():
     """
     req_data = await request.get_json()
     if not helpers.check_required_params(
-            req_data, ["database_type", "database_size", "resource_id"]):
+        req_data, ["database_type", "database_size", "resource_id"]
+    ):
         return "Bad Request: Missing required parameter", 400
 
     if not helpers.validate_db_type(req_data["database_type"]):
@@ -148,15 +162,17 @@ async def add_resource():
     resource_id = req_data["resource_id"]
     with db.transaction() as transaction:
         try:
-            await add(transaction,
-                      req_data["database_type"],
-                      req_data["database_size"],
-                      resource_id)
+            await add(
+                transaction,
+                req_data["database_type"],
+                req_data["database_size"],
+                resource_id,
+            )
             return f"Successfully added resource {resource_id} to pool", 200
         except Exception:
             app.logger.exception("Error occurred during transaction:")
             return f"Error occurred during transaction. See logs for info", 500
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run()
