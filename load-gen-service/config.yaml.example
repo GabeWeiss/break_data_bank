@@ -19,3 +19,6 @@ DB_PASSWORD: my-db-password
 
 PUBSUB_TOPIC: my-pubsub-topic
 PUBSUB_PROJECT: my-pubsub-project
+
+TARGET_CONTAINER: gcr.io/my-project/my-load-gen-script
+CONTAINER_KSA: my-kubernetes-service-account

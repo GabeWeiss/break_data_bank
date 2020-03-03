@@ -45,7 +45,6 @@ def load_gen_container(
         f"--workload-id={job_id}",
         f"--target-type={database_type}",
         f"--database={app.config['DB_NAME']}",
-        # TODO: parameterize these from app config
         f"--user={app.config['DB_USER']}",
         f"--password={app.config['DB_PASSWORD']}",
         f"--pubsub_project={app.config['PUBSUB_PROJECT']}",
@@ -58,14 +57,12 @@ def load_gen_container(
     return client.V1Container(
         name="load-gen",
         args=args,
-        # TODO: parameterize this from app config
-        image="gcr.io/kvg-testing/load-gen",
+        image=f"{app.config['CONTAINER_IMAGE']}",
     )
 
 
 @base.route("/", methods=["POST"])
 async def create_load_gen_job():
-
     data = await request.get_json()
 
     # TODO: add better validation
@@ -91,7 +88,7 @@ async def create_load_gen_job():
             template=client.V1PodTemplateSpec(
                 spec=client.V1PodSpec(
                     restart_policy="Never",
-                    service_account_name="load-gen-service-account",
+                    service_account_name=f"{app.config['CONTAINER_KSA']}",
                     containers=[
                         load_gen_container(
                             resource_id, job_id, database_type, cloud_sql_ip
