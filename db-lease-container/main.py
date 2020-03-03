@@ -47,7 +47,9 @@ def lease(transaction, db_type, size, duration):
     pool_ref = (
         db.collection("db_resources")
         .document(DB_TYPES[db_type])
-        .collection(DB_SIZES[size])
+        .collection("sizes")
+        .document(DB_SIZES[size])
+        .collection("resources")
     )
     query = pool_ref.order_by("expiry").limit(1)
     resources = query.stream(transaction=transaction)
@@ -73,7 +75,9 @@ def add(transaction, db_type, size, resource_id):
     pool_ref = (
         db.collection("db_resources")
         .document(DB_TYPES[db_type])
-        .collection(DB_SIZES[size])
+        .collection("sizes")
+        .document(DB_SIZES[size])
+        .collection("resources")
     )
     snapshot = pool_ref.document(resource_id).get(transaction=transaction)
     if not snapshot.exists:
