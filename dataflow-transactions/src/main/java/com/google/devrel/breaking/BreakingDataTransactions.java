@@ -53,13 +53,20 @@ import org.joda.time.Instant;
 
 public class BreakingDataTransactions {
 
+    // When true, this pulls from the specified Pub/Sub topic
   static Boolean REAL = true;
+    // when set to true the job gets deployed to Cloud Dataflow
+  static Boolean DEPLOY = false;
 
   public static void main(String[] args) {
     DataflowPipelineOptions options =
         PipelineOptionsFactory.create().as(DataflowPipelineOptions.class);
 
-    Pipeline p = Pipeline.create(options);
+    Pipeline p;
+    if (DEPLOY)
+      p = Pipeline.create(options);
+    else
+      p = Pipeline.create();
 
     options.setProject("gweiss-simple-path");
     options.setRunner(DataflowRunner.class);
@@ -120,6 +127,7 @@ public class BreakingDataTransactions {
             .apply(ParDo.of(JSONToPOJO.create(Data.class)))
             .setCoder(AvroCoder.of(Data.class));
 
+    try {
     PCollection<Result> result =
         dataCollection
             .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
@@ -147,6 +155,9 @@ public class BreakingDataTransactions {
                   System.out.println("HOLY SHIT");
                   return "";
                 }));
+      } catch(Exception ex) {
+        System.out.println("An exception occurred");
+      }
 
     p.run();
   }
