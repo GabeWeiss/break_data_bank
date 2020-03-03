@@ -22,8 +22,7 @@ def use_test_db(monkeypatch):
 
 @pytest.fixture()
 def resource_available(test_db):
-    pool_ref = test_db.collection(
-        "cloud-sql").document("1x").collection("resources")
+    pool_ref = test_db.collection("db_resources").document("cloud-sql").collection("1x")
     pool_ref.add({"expiry": time.time() - 10})
     yield
     for resource in pool_ref.stream():
@@ -32,8 +31,7 @@ def resource_available(test_db):
 
 @pytest.fixture()
 def resource_unavailable(test_db):
-    pool_ref = test_db.collection(
-        "cloud-sql").document("1x").collection("resources")
+    pool_ref = test_db.collection("db_resources").document("cloud-sql").collection("1x")
     pool_ref.add({"expiry": time.time() + 3600})
     yield
     for resource in pool_ref.stream():
