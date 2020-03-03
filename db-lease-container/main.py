@@ -90,6 +90,9 @@ async def lease_resource():
     """
     req_data = await request.get_json()
 
+    if not req_data:
+        return "Bad Request: Missing required parameters", 400
+
     if not helpers.check_required_params(
             req_data, ["database_type", "database_size", "duration"]):
         return "Bad Request: Missing required parameter", 400
