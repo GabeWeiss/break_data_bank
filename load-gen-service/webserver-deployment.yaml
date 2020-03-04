@@ -1,0 +1,23 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-gen-deployment
+  labels:
+    app: load-gen
+spec:
+  selector:
+    matchLabels:
+      app: load-gen
+  template:
+    metadata:
+      labels:
+        app: load-gen
+    spec:
+      containers:
+      - name: load-gen-server
+        image: <YOUR-IMAGE-HERE>
+        ports:
+        - containerPort: 5000
+      serviceAccount: load-gen-webserver
+

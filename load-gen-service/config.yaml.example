@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# default flags when running run_load_generator.py
 
+DB_NAME: my-db-name
+DB_USER: my-db-user
+DB_PASSWORD: my-db-password
 
-# target-type: cloud-sql
+PUBSUB_TOPIC: my-pubsub-topic
+PUBSUB_PROJECT: my-pubsub-project
 
-# database: my_db
-# user: my-user
-#password: my-password
+CONTAINER_IMAGE: gcr.io/my-project/my-load-gen-script
+CONTAINER_KSA: my-kubernetes-service-account

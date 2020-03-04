@@ -3,7 +3,7 @@ FROM python:3
 LABEL maintainer="Gabe Weiss"
 
 # Install dependencies
-COPY requirements.txt /app/
+COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # Copy app into container
