@@ -65,7 +65,9 @@ class PublishQueue:
 
             if len(grouping) > 0:
                 try:
-                    publisher.publish(topic_path, data=json.dumps(grouping).encode("utf-8"))
+                    publisher.publish(
+                        topic_path, data=json.dumps(grouping).encode("utf-8")
+                    )
                     logger.debug("Published %s transactions.", len(grouping))
                 except Exception as ex:
                     logger.warning("Error attempting to publish: %s", ex)
