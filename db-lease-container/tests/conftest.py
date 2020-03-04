@@ -14,8 +14,13 @@ def use_test_db(monkeypatch):
 
 @pytest.fixture()
 def cleanup_db(test_db):
+    pool_ref = (
+        test_db.collection("db_resources")
+        .document("cloud-sql")
+        .collection("sizes")
+        .document("1x")
+        .collection("resources")
+    )
     yield
-    pool_ref = test_db.collection(
-        "cloud-sql").document("1x").collection("resources")
     for resource in pool_ref.stream():
         resource.reference.delete()

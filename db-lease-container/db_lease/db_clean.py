@@ -38,9 +38,13 @@ def set_status_to_ready(
             db_type: str,
             db_size: str,
             resource_id: str):
-    resource_ref = db.collection(db_type).document(db_size).collection(
-            "resources").document(resource_id)
-    resource_ref.update({"status": "ready"})
+    pool_ref = (
+        db.collection("db_resources")
+        .document(db_type).collection("sizes")
+        .document(db_size)
+        .collection("resources")
+    )
+    pool_ref.document(resource_id).update({"status": "ready"})
 
 
 @run_function_as_async
@@ -62,34 +66,29 @@ def clean_spanner_instance(resource_id: str, logger: logging.Logger):
 
 
 async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
-    if os.getenv("PROD") == 1:
-        conn = await asyncpg.connect(
-            host=f'/cloudsql/{resource_id}/.s.PGSQL.5432',
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-        )
-    # Connect with TCP when testing locally
-    else:
-        conn = await asyncpg.connect(
-                host="127.0.0.1",
-                port="5432",
-                database=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD,
-        )
-    # Drop the schema to drop all tables
-    # (would probably be better to use a schema other than public)
-    await conn.execute("DROP SCHEMA public CASCADE")
-    logger.info(f"Dropped schema for db {DB_NAME} in instance {resource_id}")
-    # Recreate the schema
-    await conn.execute("CREATE SCHEMA public")
-    logger.info(f"Recreated schema for db {DB_NAME} in instance {resource_id}")
-    # Recreate the tables
-    for statement in DDL_STATEMENTS:
-        await conn.execute(statement)
-    logger.info(f"Recreated tables for db {DB_NAME} in instance {resource_id}")
-    await conn.close()
+    args = {
+        "host": "127.0.0.1",
+        "port": "5432",
+        "database": DB_NAME,
+        "user": DB_USER,
+        "password": DB_PASSWORD,
+    }
+    if os.getenv("PROD"):
+        args["host"] = f'/cloudsql/{resource_id}/.s.PGSQL.5432'
+        del args["port"]
+    conn = await asyncpg.connect(**args,)
+    try:
+        await conn.execute("DROP SCHEMA public CASCADE")
+        logger.info(f"Dropped schema for db {DB_NAME} in instance {resource_id}")
+        # Recreate the schema
+        await conn.execute("CREATE SCHEMA public")
+        logger.info(f"Recreated schema for db {DB_NAME} in instance {resource_id}")
+        # Recreate the tables
+        for statement in DDL_STATEMENTS:
+            await conn.execute(statement)
+        logger.info(f"Recreated tables for db {DB_NAME} in instance {resource_id}")
+    finally:
+        await conn.close()
 
 
 async def clean_instances(
@@ -107,10 +106,11 @@ async def clean_instances(
             for resource in resources:
                 db_type = resource.get("database_type")
                 db_size = resource.get("database_size")
-                if db_type == "spanner":
-                    await clean_spanner_instance(resource.id, logger)
-                elif "cloud-sql" in db_type:
-                    await clean_cloud_sql_instance(resource.id, logger)
+                clean_func = {
+                    "spanner": clean_spanner_instance,
+                    "cloud-sql": clean_cloud_sql_instance
+                }[db_type]
+                await clean_func(resource.id, logger)
                 await set_status_to_ready(db, db_type,
                                           db_size, resource.id)
         except Exception:
