@@ -106,7 +106,7 @@ async def fail():
         read_pattern = form['read_pattern']
         write_pattern = form['write_pattern']
     except: 
-        return "\nMissing a required parameter, please ensure you have everything in your POST method.\n", 400
+        return "\nMissing required parameters ('read_pattern', 'write_pattern'), please ensure you have everything in your POST method.\n", 400
 
     jobs_id = await set_firestore(CLOUD_SQL, 1, int(read_pattern), int(write_pattern), 3, 3)
 
@@ -121,11 +121,11 @@ async def fail():
 
 @app.route('/run', methods=['POST'])
 async def run():
-    return 'run'
+    return 'run', 200
 """
 @app.websocket('/ws')
 async def ws():
     while True:
         await websocket.send('hello')
 """
-app.run()
+app.run(host="localhost",port="5001")
