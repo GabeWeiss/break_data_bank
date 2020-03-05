@@ -13,7 +13,7 @@ PROJECT_ID = os.getenv("PROJECT_ID")
 
 
 @pytest.fixture
-def add_cloudsql_instance(test_db):
+def add_cloudsql_instance(test_db, app):
     pool_ref = (
         test_db.collection("db_resources")
         .document("cloud-sql").collection("sizes")

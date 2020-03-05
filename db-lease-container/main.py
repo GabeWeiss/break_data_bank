@@ -25,6 +25,8 @@ app = Quart(__name__)
 
 db = firestore.Client()
 
+cleanup_event = asyncio.Event()
+
 
 @run_function_as_async
 @firestore.transactional
@@ -84,7 +86,16 @@ def add(transaction, db_type, size, resource_id):
 @app.before_first_request
 async def clear_databases():
     loop = asyncio.get_event_loop()
-    loop.create_task(db_clean.clean_instances(db, app.logger))
+    cleanup_event.set()
+    loop.create_task(
+        db_clean.loop_clean_instances(db, app.logger, cleanup_event))
+
+
+@app.after_serving
+async def stop_cleanup_task():
+    cleanup_event.clear()
+
+    await asyncio.sleep(db_clean.DB_CLEANUP_INTERVAL * 2)
 
 
 @app.route('/isitworking', methods=['GET'])

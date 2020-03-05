@@ -79,39 +79,43 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
     conn = await asyncpg.connect(**args,)
     try:
         await conn.execute("DROP SCHEMA public CASCADE")
-        logger.info(f"Dropped schema for db {DB_NAME} in instance {resource_id}")
+        logger.info(f"Dropped schema for db {DB_NAME} in {resource_id}")
         # Recreate the schema
         await conn.execute("CREATE SCHEMA public")
-        logger.info(f"Recreated schema for db {DB_NAME} in instance {resource_id}")
+        logger.info(f"Recreated schema for db {DB_NAME} in {resource_id}")
         # Recreate the tables
         for statement in DDL_STATEMENTS:
             await conn.execute(statement)
-        logger.info(f"Recreated tables for db {DB_NAME} in instance {resource_id}")
+        logger.info(f"Recreated tables for db {DB_NAME} in {resource_id}")
     finally:
         await conn.close()
 
 
-async def clean_instances(
+async def clean_instances(db: firestore.Client, logger: logging.Logger):
+    try:
+        resources = await get_expired_resouces(db)
+        for resource in resources:
+            db_type = resource.get("database_type")
+            db_size = resource.get("database_size")
+            clean_func = {
+                "spanner": clean_spanner_instance,
+                "cloud-sql": clean_cloud_sql_instance
+            }[db_type]
+            await clean_func(resource.id, logger)
+            await set_status_to_ready(db, db_type, db_size, resource.id)
+    except Exception:
+        logger.exception("An error occured while clearing databases:")
+
+
+async def loop_clean_instances(
         db: firestore.Client,
         logger: logging.Logger,
+        event: asyncio.Event,
         interval: float = DB_CLEANUP_INTERVAL):
     """
     Periodically iterates through all expired resources which are unavailable
     and clears all tables.
     """
-    while True:
+    while event.is_set():
         await asyncio.sleep(interval)
-        try:
-            resources = await get_expired_resouces(db)
-            for resource in resources:
-                db_type = resource.get("database_type")
-                db_size = resource.get("database_size")
-                clean_func = {
-                    "spanner": clean_spanner_instance,
-                    "cloud-sql": clean_cloud_sql_instance
-                }[db_type]
-                await clean_func(resource.id, logger)
-                await set_status_to_ready(db, db_type,
-                                          db_size, resource.id)
-        except Exception:
-            logger.exception("An error occured while clearing databases:")
+        await clean_instances(db, logger)

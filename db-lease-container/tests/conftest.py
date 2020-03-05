@@ -2,6 +2,7 @@ import os
 
 import pytest
 from google.cloud import firestore
+from main import app
 
 
 @pytest.fixture(name="test_db", autouse=True)
@@ -24,3 +25,10 @@ def cleanup_db(test_db):
     yield
     for resource in pool_ref.stream():
         resource.reference.delete()
+
+
+@pytest.fixture(name="app", scope="function")
+async def _app():
+    await app.startup()
+    yield app
+    await app.shutdown()
