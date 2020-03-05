@@ -27,20 +27,22 @@ def get_expired_resouces(db: firestore.Client):
     Queries Firestore for all resources that are expired, but not ready
     to return to the pool
     """
-    query = db.collection_group("resources").where(
-        "expiry", "<", time.time()).where("status", "==", "leased")
+    query = (
+        db.collection_group("resources")
+        .where("expiry", "<", time.time())
+        .where("status", "==", "leased")
+    )
     return query.stream()
 
 
 @run_function_as_async
 def set_status_to_ready(
-            db: firestore.Client,
-            db_type: str,
-            db_size: str,
-            resource_id: str):
+    db: firestore.Client, db_type: str, db_size: str, resource_id: str
+):
     pool_ref = (
         db.collection("db_resources")
-        .document(db_type).collection("sizes")
+        .document(db_type)
+        .collection("sizes")
         .document(db_size)
         .collection("resources")
     )
@@ -74,7 +76,7 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
         "password": DB_PASSWORD,
     }
     if os.getenv("PROD"):
-        args["host"] = f'/cloudsql/{resource_id}/.s.PGSQL.5432'
+        args["host"] = f"/cloudsql/{resource_id}/.s.PGSQL.5432"
         del args["port"]
     conn = await asyncpg.connect(**args,)
     try:
@@ -99,7 +101,7 @@ async def clean_instances(db: firestore.Client, logger: logging.Logger):
             db_size = resource.get("database_size")
             clean_func = {
                 "spanner": clean_spanner_instance,
-                "cloud-sql": clean_cloud_sql_instance
+                "cloud-sql": clean_cloud_sql_instance,
             }[db_type]
             await clean_func(resource.id, logger)
             await set_status_to_ready(db, db_type, db_size, resource.id)
@@ -108,10 +110,11 @@ async def clean_instances(db: firestore.Client, logger: logging.Logger):
 
 
 async def loop_clean_instances(
-        db: firestore.Client,
-        logger: logging.Logger,
-        event: asyncio.Event,
-        interval: float = DB_CLEANUP_INTERVAL):
+    db: firestore.Client,
+    logger: logging.Logger,
+    event: asyncio.Event,
+    interval: float = DB_CLEANUP_INTERVAL,
+):
     """
     Periodically iterates through all expired resources which are unavailable
     and clears all tables.

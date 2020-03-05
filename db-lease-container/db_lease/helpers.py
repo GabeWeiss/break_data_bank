@@ -72,4 +72,5 @@ def run_function_as_async(func):
         partial_func = partial(func, *args, **kwargs)
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, partial_func)
+
     return wrapped_sync_function

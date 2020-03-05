@@ -48,10 +48,9 @@ def lease(transaction, db_type, size, duration):
     for resource in resources:
         if helpers.is_available(resource):
             res_ref = pool_ref.document(resource.id)
-            transaction.update(res_ref, {
-                "expiry": time.time() + duration,
-                "status": "leased"
-                })
+            transaction.update(
+                res_ref, {"expiry": time.time() + duration, "status": "leased"}
+            )
             available = resource
             break
 
@@ -75,10 +74,15 @@ def add(transaction, db_type, size, resource_id):
     snapshot = pool_ref.document(resource_id).get(transaction=transaction)
     if not snapshot.exists:
         resource_ref = pool_ref.document(resource_id)
-        transaction.set(resource_ref, {"expiry": time.time() - 10,
-                                       "database_type": DB_TYPES[db_type],
-                                       "database_size": DB_SIZES[size],
-                                       "status": "ready"})
+        transaction.set(
+            resource_ref,
+            {
+                "expiry": time.time() - 10,
+                "database_type": DB_TYPES[db_type],
+                "database_size": DB_SIZES[size],
+                "status": "ready",
+            },
+        )
     else:
         raise Exception(f"Resource {resource_id} already in pool")
 
@@ -87,8 +91,7 @@ def add(transaction, db_type, size, resource_id):
 async def clear_databases():
     loop = asyncio.get_event_loop()
     cleanup_event.set()
-    loop.create_task(
-        db_clean.loop_clean_instances(db, app.logger, cleanup_event))
+    loop.create_task(db_clean.loop_clean_instances(db, app.logger, cleanup_event))
 
 
 @app.after_serving
@@ -98,8 +101,8 @@ async def stop_cleanup_task():
     await asyncio.sleep(db_clean.DB_CLEANUP_INTERVAL * 2)
 
 
-@app.route('/isitworking', methods=['GET'])
-@app.route('/', methods=['GET'])
+@app.route("/isitworking", methods=["GET"])
+@app.route("/", methods=["GET"])
 def working():
     return "It's working", 200
 
@@ -185,7 +188,7 @@ async def add_resource():
             return f"Error occurred during transaction. See logs for info", 500
 
 
-@app.route('/force-clean', methods=['POST'])
+@app.route("/force-clean", methods=["POST"])
 async def force_clean():
     """
     Endpoint to force the database cleaning task to run
@@ -194,5 +197,4 @@ async def force_clean():
 
 
 if __name__ == "__main__":
-    app.run(host="localhost",port="5003")
-
+    app.run(host="localhost", port="5003")
