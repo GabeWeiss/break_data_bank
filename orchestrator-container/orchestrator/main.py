@@ -17,6 +17,7 @@ import time
 
 import asyncio
 from quart import Quart, websocket, jsonify, request
+import requests
 
 import firebase_admin
 from firebase_admin import credentials, db, firestore
@@ -32,6 +33,10 @@ CLOUD_SQL_REPLICA = 2
 CLOUD_SPANNER     = 3
 
 app = Quart(__name__)
+
+# CHANGE THIS FOR FINAL PROD
+gDuration = 3 # represents the duration we're reserving an instance
+db_lease_url = "http://localhost:5003/lease"
 
 cred = credentials.Certificate('../break_service_account.json')
 firebase_admin.initialize_app(cred, {
@@ -50,16 +55,18 @@ async def index():
         </ul>
     </body></html>"""
 
-async def fetch_resource_id(db_type, db_size):
-    # TODO: Fetch actual resource from service
-    return "0"
+async def fetch_resource_id(db_type, db_size, duration):
+    parameters = {'database_type':db_type,'database_size':db_size,'duration':duration}
+    r = requests.post(url = db_lease_url, json = parameters)
+    print(r.text)
+    return "0.0.0.0"
 
 async def do_run(db_type, db_size,
                  read_pattern, read_intensity,
                  write_pattern, write_intensity):
         # Fetch a resource
-    resource_id = await fetch_resource_id(db_type, db_size)    
-
+    resource_id = await fetch_resource_id(db_type, db_size, gDuration)
+    print (resource_id)
         # Start load gen
         # TODO: start load gen
 
@@ -103,8 +110,8 @@ async def fail():
     form = await request.form
     try:
         # Note, for fail run, these are the only two we care about
-        read_pattern = form['read_pattern']
-        write_pattern = form['write_pattern']
+        read_pattern = form["read_pattern"]
+        write_pattern = form["write_pattern"]
     except: 
         return "\nMissing required parameters ('read_pattern', 'write_pattern'), please ensure you have everything in your POST method.\n", 400
 
@@ -116,7 +123,7 @@ async def fail():
         # sleep here to give the front-end time to subscribe
         # appropriately
     loop = asyncio.get_event_loop()
-    loop.create_task(do_run(1,2,3,4,5,6))
+    loop.create_task(do_run(CLOUD_SQL,1,read_pattern,3,write_pattern,3))
     return '{{ jobs_id: "{}" }}'.format(jobs_id), 200
 
 @app.route('/run', methods=['POST'])
