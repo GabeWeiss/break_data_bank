@@ -87,6 +87,7 @@ def add(transaction, db_type, size, resource_id):
 
 @app.before_serving
 async def clear_databases():
+    # this event is used to start and stop a long running task to periodically clear databases
     app.cleanup_event = asyncio.Event()
     loop = asyncio.get_event_loop()
     app.cleanup_event.set()
