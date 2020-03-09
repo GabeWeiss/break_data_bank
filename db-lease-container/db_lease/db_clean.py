@@ -32,7 +32,10 @@ def get_expired_resouces(db: firestore.Client):
         .where("expiry", "<", time.time())
         .where("status", "==", "leased")
     )
-    return query.stream()
+    resources = []
+    for resource in query.stream():
+        resources.append(resource)
+    return resources
 
 
 @run_function_as_async
