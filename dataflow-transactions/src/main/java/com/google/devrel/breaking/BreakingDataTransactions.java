@@ -56,7 +56,7 @@ public class BreakingDataTransactions {
     // When true, this pulls from the specified Pub/Sub topic
   static Boolean REAL = true;
     // when set to true the job gets deployed to Cloud Dataflow
-  static Boolean DEPLOY = false;
+  static Boolean DEPLOY = true;
 
   public static void main(String[] args) {
     DataflowPipelineOptions options =
@@ -73,6 +73,9 @@ public class BreakingDataTransactions {
     options.setTempLocation("gs://gweiss-breaking-test/tmp");
 
     PCollection<String> jsonStrings;
+    
+    FireStoreOutput firestore = new FireStoreOutput();
+    firestore.setup();
 
     if (REAL) {
       String pubsubTopic = "projects/gweiss-simple-path/topics/breaking-test";
@@ -127,37 +130,37 @@ public class BreakingDataTransactions {
             .apply(ParDo.of(JSONToPOJO.create(Data.class)))
             .setCoder(AvroCoder.of(Data.class));
 
-    try {
     PCollection<Result> result =
         dataCollection
             .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
-            .apply(WithKeys.of(x -> x.transaction_type))
+            .apply(WithKeys.of(x -> x.transaction_type + "-" + x.load_id))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), AvroCoder.of(Data.class)))
             .apply(Combine.<String, Data, Result>perKey(new DataAnalysis()))
             .apply(Reify.windowsInValue())
-            .apply(
-                MapElements.into(TypeDescriptor.of(Result.class))
+            .apply(MapElements.into(TypeDescriptor.of(Result.class))
                     .<KV<String, ValueInSingleWindow<Result>>>via(
                         x -> {
                           Result r = new Result();
-                          r.query_action = x.getKey();
+                          String key = x.getKey();
+                          r.query_action = key.substring(0, key.indexOf("-"));
+                          r.load_id = key.substring(key.indexOf("-") + 1);
                           r.average_latency = x.getValue().getValue().average_latency;
                           r.failure_percent = x.getValue().getValue().failure_percent;
                           r.timestamp = x.getValue().getTimestamp().getMillis();
                           return r;
                         }));
 
-    result.apply(
+          // this node will (hopefully) actually write out to Firestore
+        result.apply(ParDo.of(new FireStoreOutput()));
+
+
         MapElements.<String>into(TypeDescriptors.strings())
             .<Result>via(
                 x -> {
                   System.out.println(x);
-                  System.out.println("HOLY SHIT");
+                  System.out.println("Processing");
                   return "";
-                }));
-      } catch(Exception ex) {
-        System.out.println("An exception occurred");
-      }
+                });
 
     p.run();
   }
@@ -166,7 +169,6 @@ public class BreakingDataTransactions {
 
     @Override
     public ResultAggregate createAccumulator() {
-      System.out.println("Result Aggregate created");
       return new ResultAggregate();
     }
 
@@ -181,7 +183,6 @@ public class BreakingDataTransactions {
 
     @Override
     public ResultAggregate mergeAccumulators(Iterable<ResultAggregate> accumulators) {
-      System.out.println("mergeAccumulators called");
       ResultAggregate resultAggregate = createAccumulator();
       for (ResultAggregate r : accumulators) {
         resultAggregate.count += r.count;
@@ -225,6 +226,7 @@ public class BreakingDataTransactions {
     public float failure_percent;
     public float average_latency;
     @Nullable public String query_action;
+    @Nullable public String load_id;
     public long timestamp;
 
     @Override
@@ -264,13 +266,18 @@ public class BreakingDataTransactions {
     @ProcessElement
     public void processElement(@Element Result result) {
     
-      DocumentReference docRef = db.collection("events").document("next2020").collection("transactions").document();
+      DocumentReference docRef = db.collection("events")
+                                   .document("next2020")
+                                   .collection("transactions")
+                                   .document();
+      System.out.println(docRef.getId());
       // Add document data  with id "alovelace" using a hashmap
       Map<String, Object> data = new HashMap<>();
       data.put("failure_percent", result.failure_percent);
       data.put("average_latency", result.average_latency);
       data.put("query_action", result.query_action);
       data.put("timestamp", result.timestamp);
+      data.put("job_id", result.load_id);
 
       // asynchronously write data
       ApiFuture<WriteResult> writeResult = docRef.set(data);
@@ -306,11 +313,12 @@ public class BreakingDataTransactions {
     @ProcessElement
     public void process(@Element String input, @Timestamp Instant timestamp, OutputReceiver<T> o) {
       try {
-        o.output(gson.fromJson(input, clazz));
+        T d = gson.fromJson(input, clazz);
+        o.output(d);
       } catch (Exception ex) {
         System.out.println(ex);
       }
-      System.out.println(input);
+      //System.out.println(input);
     }
   }
 }
