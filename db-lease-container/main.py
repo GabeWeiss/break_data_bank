@@ -25,8 +25,6 @@ app = Quart(__name__)
 
 db = firestore.Client()
 
-cleanup_event = asyncio.Event()
-
 
 @run_function_as_async
 @firestore.transactional
@@ -87,18 +85,18 @@ def add(transaction, db_type, size, resource_id):
         raise Exception(f"Resource {resource_id} already in pool")
 
 
-@app.before_first_request
+@app.before_serving
 async def clear_databases():
+    app.cleanup_event = asyncio.Event()
     loop = asyncio.get_event_loop()
-    cleanup_event.set()
-    loop.create_task(db_clean.loop_clean_instances(db, app.logger, cleanup_event))
+    app.cleanup_event.set()
+    loop.create_task(db_clean.loop_clean_instances(db, app.logger, app.cleanup_event))
 
 
 @app.after_serving
 async def stop_cleanup_task():
-    cleanup_event.clear()
-
-    await asyncio.sleep(db_clean.DB_CLEANUP_INTERVAL * 2)
+    app.cleanup_event.clear()
+    await app.cleanup_event.wait()
 
 
 @app.route("/isitworking", methods=["GET"])

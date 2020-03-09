@@ -7,13 +7,11 @@ from unittest import mock
 
 import pytest
 
-from main import app
-
 PROJECT_ID = os.getenv("PROJECT_ID")
 
 
 @pytest.fixture
-def add_cloudsql_instance(test_db, app):
+def add_cloudsql_instance(test_db):
     pool_ref = (
         test_db.collection("db_resources")
         .document("cloud-sql")
@@ -33,7 +31,7 @@ def add_cloudsql_instance(test_db, app):
 
 @pytest.mark.asyncio
 async def test_cloud_sql_instance_is_cleaned(
-    test_db, add_cloudsql_instance, cleanup_db, caplog
+    app, test_db, add_cloudsql_instance, cleanup_db, caplog
 ):
     client = app.test_client()
     test_data = {"database_type": 1, "database_size": 1, "duration": 3}

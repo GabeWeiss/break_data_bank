@@ -122,3 +122,4 @@ async def loop_clean_instances(
     while event.is_set():
         await asyncio.sleep(interval)
         await clean_instances(db, logger)
+    event.set()
