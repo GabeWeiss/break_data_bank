@@ -76,7 +76,7 @@ async def create_load_gen_job():
 
     job = client.V1Job(
         api_version="batch/v1",
-        metadata=client.V1ObjectMeta(name=f"test-load-{job_id}"),
+        metadata=client.V1ObjectMeta(name=f"test-load-{job_id.lower()}"),
         spec=client.V1JobSpec(
             ttl_seconds_after_finished=60,
             # Set # of jobs to run
