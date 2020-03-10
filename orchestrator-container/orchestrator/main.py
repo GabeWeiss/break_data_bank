@@ -38,6 +38,7 @@ app = Quart(__name__)
 # CHANGE THIS FOR FINAL PROD
 gDuration = 3 # represents the duration we're reserving an instance
 db_lease_url = "http://localhost:5003/lease"
+load_gen_url = "http://localhost:5002"
 
 cred = credentials.Certificate('../break_service_account.json')
 firebase_admin.initialize_app(cred, {
@@ -65,14 +66,19 @@ async def fetch_resource_id(db_type, db_size, duration):
         resource_id = -1
     return resource_id
 
-async def do_run(db_type, db_size,
+async def do_run(resource_id, job_id, db_type,
                  read_pattern, read_intensity,
                  write_pattern, write_intensity):
-        # Fetch a resource
-    resource_id = await fetch_resource_id(db_type, db_size, gDuration)
-    print (resource_id)
-        # Start load gen
-        # TODO: start load gen
+    parameters = {"job_id":job_id,
+                  "resource_id":resource_id,
+                  "database_type":db_type,
+                  "read_pattern":read_pattern,
+                  "write_pattern":write_pattern,
+                  "intensity":read_intensity,
+                  "cloud_sql_ip":resource_id
+                  }
+    r = requests.post(url = load_gen_url, json = parameters)
+    return r
 
 @app.route('/test', methods=['POST', 'GET'])
 async def test():
@@ -129,14 +135,13 @@ async def fail():
     resource_id = await fetch_resource_id(CLOUD_SQL, 1, gDuration)
     if resource_id == -1:
         return "Unable to fetch an available database resource.", 503
-    print(resource_id)
-        # Using the event loop so we can initiate the load gen
-        # asynchronously while returning our id back to the 
-        # front-end so they can subscribe. MIGHT even need a small
-        # sleep here to give the front-end time to subscribe
-        # appropriately
-#    loop = asyncio.get_event_loop()
-#    loop.create_task(do_run(CLOUD_SQL,1,read_pattern,3,write_pattern,3))
+
+        # Starting up load gen!
+    run_result = await do_run(resource_id, jobs_id, CLOUD_SQL,
+                              read_pattern, 3,
+                              write_pattern, 3)
+    print(run_result)
+
     return '{{ "jobs_id": "{}" }}'.format(jobs_id), 200
 
 @app.route('/run', methods=['POST'])
