@@ -67,7 +67,7 @@ def lease(transaction, db_type, size, duration):
 
 @run_function_as_async
 @firestore.transactional
-def add(transaction, db_type, size, resource_id):
+def add(transaction, db_type, size, resource_id, ip_address):
     """
     Adds a resource with the given id to the pool corresponding to the given
     database type and size if it doesn't already exist.
@@ -82,7 +82,9 @@ def add(transaction, db_type, size, resource_id):
     snapshot = pool_ref.document(resource_id).get(transaction=transaction)
     if not snapshot.exists:
         resource_ref = pool_ref.document(resource_id)
-        transaction.set(resource_ref, {"expiry": time.time() - 10})
+        transaction.set(
+            resource_ref, {"expiry": time.time() - 10, "ip_address": ip_address}
+        )
     else:
         raise Exception(f"Resource {resource_id} already in pool")
 
@@ -135,6 +137,8 @@ async def lease_resource():
         "resource_id": leased_resource.id,
         "expiration": leased_resource.get("expiry"),
     }
+    if "cloud-sql" in DB_TYPES[req_data["database_type"]]:
+        response["ip_address"] = leased_resource.get("ip_address")
     return jsonify(response), 200
 
 
@@ -160,6 +164,9 @@ async def add_resource():
         return "Bad Request: Invalid resource_id", 400
 
     resource_id = req_data["resource_id"]
+    ip_address = None
+    if "ip_address" in req_data.keys():
+        ip_address = req_data["ip_address"]
     with db.transaction() as transaction:
         try:
             await add(
@@ -167,6 +174,7 @@ async def add_resource():
                 req_data["database_type"],
                 req_data["database_size"],
                 resource_id,
+                ip_address,
             )
             return f"Successfully added resource {resource_id} to pool", 200
         except Exception:
@@ -175,4 +183,4 @@ async def add_resource():
 
 
 if __name__ == "__main__":
-    app.run(host="localhost",port="5003")
+    app.run(host="localhost", port="5003")

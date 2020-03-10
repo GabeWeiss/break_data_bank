@@ -24,7 +24,8 @@ def use_test_db(monkeypatch):
 def resource_available(test_db):
     pool_ref = (
         test_db.collection("db_resources")
-        .document("cloud-sql").collection("sizes")
+        .document("cloud-sql")
+        .collection("sizes")
         .document("1x")
         .collection("resources")
     )
