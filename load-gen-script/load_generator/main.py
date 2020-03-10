@@ -146,15 +146,18 @@ def main():
         + "nearest whole second at least half a second into the future.",
         type=float,
     )
+    parser.add_argument("-d", "--database", help="database name")
 
     cloud_sql_args = parser.add_argument_group("cloud-sql arguments")
     cloud_sql_args.add_argument(
         "--host", default="127.0.0.1", help="instance ip address"
     )
     cloud_sql_args.add_argument("--port", default=5432, type=int, help="instance port")
-    cloud_sql_args.add_argument("-d", "--database", help="database name")
     cloud_sql_args.add_argument("-u", "--user", help="database user")
     cloud_sql_args.add_argument("-p", "--password", help="database user password")
+
+    spanner_args = parser.add_argument_group("spanner arguments")
+    spanner_args.add_argument("-i", "--instance", help="instance name")
 
     args = parser.parse_args()
 
@@ -170,6 +173,12 @@ def main():
         for flag in ["database", "user", "password"]:
             if getattr(args, flag) is None:
                 parser.exit(1, f"--{flag} is required for cloud-sql targets\n")
+
+    # Validate Spanner flags
+    if args.target_type == SPANNER:
+        for flag in ["database", "instance"]:
+            if getattr(args, flag) is None:
+                parser.exit(1, f"--{flag} is required for spanner targets\n")
 
     # Configure logging
     handler = logging.StreamHandler()
