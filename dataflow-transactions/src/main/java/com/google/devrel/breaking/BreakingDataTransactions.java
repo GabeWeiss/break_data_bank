@@ -54,9 +54,9 @@ import org.joda.time.Instant;
 public class BreakingDataTransactions {
 
     // When true, this pulls from the specified Pub/Sub topic
-  static Boolean REAL = true;
+  static Boolean REAL = false;
     // when set to true the job gets deployed to Cloud Dataflow
-  static Boolean DEPLOY = true;
+  static Boolean DEPLOY = false;
 
   public static void main(String[] args) {
     DataflowPipelineOptions options =
@@ -73,9 +73,6 @@ public class BreakingDataTransactions {
     options.setTempLocation("gs://gweiss-breaking-test/tmp");
 
     PCollection<String> jsonStrings;
-    
-    FireStoreOutput firestore = new FireStoreOutput();
-    firestore.setup();
 
     if (REAL) {
       String pubsubTopic = "projects/gweiss-simple-path/topics/breaking-test";
@@ -149,6 +146,9 @@ public class BreakingDataTransactions {
                           r.timestamp = x.getValue().getTimestamp().getMillis();
                           return r;
                         }));
+
+        FireStoreOutput fsOut = new FireStoreOutput();
+        fsOut.setupOnce();
 
           // this node will (hopefully) actually write out to Firestore
         result.apply(ParDo.of(new FireStoreOutput()));
@@ -240,12 +240,12 @@ public class BreakingDataTransactions {
     }
   }
 
-  public static class FireStoreOutput extends DoFn<Result, PDone> {
+  public static class FireStoreOutput extends DoFn<Result, String> {
 
     Firestore db;
 
-    @Setup
-    public void setup() {
+    public void setupOnce() {
+      System.out.println("I'm setting up Firestore");
       GoogleCredentials credentials = null;
       try {
         credentials = GoogleCredentials.getApplicationDefault();
@@ -257,7 +257,7 @@ public class BreakingDataTransactions {
                 .build();
         FirebaseApp.initializeApp(options);
 
-        db = FirestoreClient.getFirestore();
+        //db = FirestoreClient.getFirestore();
       } catch (IOException e) {
         e.printStackTrace();
       }
@@ -265,7 +265,7 @@ public class BreakingDataTransactions {
 
     @ProcessElement
     public void processElement(@Element Result result) {
-    
+      db = FirestoreClient.getFirestore();
       DocumentReference docRef = db.collection("events")
                                    .document("next2020")
                                    .collection("transactions")
