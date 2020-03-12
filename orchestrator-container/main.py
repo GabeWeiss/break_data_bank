@@ -152,4 +152,6 @@ async def run():
 async def cached():
     return 'cached', 200
 
-app.run(host="localhost",port="5001")
+
+if __name__ == "__main__":
+    app.run()

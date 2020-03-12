@@ -11,4 +11,4 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Run the application
-ENTRYPOINT hypercorn orchestrator:main:app --bind 0.0.0.0:${PORT}
+ENTRYPOINT hypercorn main:app --bind 0.0.0.0:${PORT}
