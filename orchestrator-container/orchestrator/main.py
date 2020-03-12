@@ -40,8 +40,8 @@ gDuration = 3 # represents the duration we're reserving an instance
 db_lease_url = "http://localhost:5003/lease"
 load_gen_url = "http://localhost:5002"
 
-cred = credentials.Certificate('../break_service_account.json')
-firebase_admin.initialize_app(cred, {
+# Passing "None" here means use the application default credentials
+firebase_admin.initialize_app(None, {
     'databaseURL' : 'https://my-db.firebaseio.com'
 })
 db = firestore.client()
