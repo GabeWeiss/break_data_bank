@@ -94,22 +94,22 @@ docker build -t breaking-orchestrator .
 if [ $? -ne 0 ]
 then
     popd
-    echo "Wasn't able to build the orchestrator"
+    echo "Wasn't able to build the breaking-orchestrator"
     return 1 2> /dev/null || exit 1
 fi
-docker tag breaking-orchestrator gcr.io/$projectId/orchestrator
+docker tag breaking-orchestrator gcr.io/$projectId/breaking-orchestrator
 if [ $? -ne 0 ]
 then
     popd
-    echo "Wasn't able to tag the orchestrator"
+    echo "Wasn't able to tag the breaking-orchestrator"
     return 1 2> /dev/null || exit 1
 fi
-docker push gcr.io/$projectId/orchestrator
+docker push gcr.io/$projectId/breaking-orchestrator
 if [ $? -ne 0 ]
 then
     popd
-    echo "Wasn't able to push the orchestrator"
+    echo "Wasn't able to push the breaking-orchestrator"
     return 1 2> /dev/null || exit 1
 fi
-# Finished the orchestrator script build and push
+# Finished the breaking-orchestrator script build and push
 popd
