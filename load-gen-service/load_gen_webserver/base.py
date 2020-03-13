@@ -42,7 +42,7 @@ async def index():
 
 
 def load_gen_container(
-    resource_id: str, job_id: str, database_type: str, cloud_sql_ip: str = None,
+    resource_id: str, job_id: str, database_type: int, cloud_sql_ip: str = None,
 ) -> client.V1Container:
     args = [
         f"--workload-id={job_id}",
