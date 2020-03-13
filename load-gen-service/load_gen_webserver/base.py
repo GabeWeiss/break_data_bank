@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+
 from kubernetes import client, config
 from quart import Blueprint, current_app as app, request
 
@@ -23,19 +25,20 @@ _k8s_batch_client: client = None
 
 @base.before_app_first_request
 async def _init_client():
+    if app.config["ENV"] == "production":
+        try:
+            os.popen("gcloud container clusters get-credentials breaking-test --zone us-central1-c").read()
+        except:
+            print("Couldn't authenticate with cluster")
+
     global _k8s_batch_client
-    if app.config["ENV"] != "production":
-        # Use local k8s config
-        config.load_kube_config()
-    else:
-        # Use in-pod config
-        config.load_incluster_config()
+    config.load_kube_config()
     _k8s_batch_client = client.BatchV1Api()
 
 
 @base.route("/", methods=["GET"])
 async def index():
-    return "I am alive!"
+    return "I'm working"
 
 
 def load_gen_container(
