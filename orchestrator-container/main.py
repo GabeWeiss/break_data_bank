@@ -37,8 +37,8 @@ app = Quart(__name__)
 
 # CHANGE THIS FOR FINAL PROD
 gDuration = 3 # represents the duration we're reserving an instance
-db_lease_url = "http://localhost:5003/lease"
-load_gen_url = "http://localhost:5002"
+db_lease_url = "https://breaking-db-lease-5gh6m2f5oq-uc.a.run.app/lease"
+load_gen_url = "https://breaking-load-service-5gh6m2f5oq-uc.a.run.app"
 
 # Passing "None" here means use the application default credentials
 firebase_admin.initialize_app(None, {
@@ -120,7 +120,7 @@ async def set_firestore(db_type, db_size,
 @app.route('/fail', methods=['POST'])
 async def fail():
     # validate we have the data we need from the caller
-    form = await request.form
+    form = await request.json
     try:
         # Note, for fail run, these are the only two we care about
         read_pattern = form["read_pattern"]
