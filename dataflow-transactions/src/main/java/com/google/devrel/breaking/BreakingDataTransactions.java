@@ -28,9 +28,12 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.cloud.FirestoreClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import java.awt.*;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import org.apache.avro.reflect.Nullable;
@@ -83,8 +86,8 @@ public class BreakingDataTransactions {
           p.apply(
               Create.timestamped(
                   TimestampedValue.of(
-                      "{ "
-                          + "\"connection_start\": 0, "
+                      "[ "
+                          + "{\"connection_start\": 0, "
                           + "\"transaction_start\": 1, "
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
@@ -92,23 +95,19 @@ public class BreakingDataTransactions {
                           + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
                           + "\"load_id\": 123412421 "
-                          + "}",
-                      now),
-                  TimestampedValue.of(
-                      "{ "
-                          + "\"connection_start\": 0, "
-                          + "\"transaction_start\": 3, "
-                          + "\"transaction_end\": 6, "
-                          + "\"connection_end\": 8, "
-                          + "\"success\": false, "
+                          + "},"
+
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
                           + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
                           + "\"load_id\": 123412422 "
-                          + "}",
-                      now.plus(Duration.standardSeconds(2))),
-                  TimestampedValue.of(
-                      "{ "
-                          + "\"connection_start\": 0, "
+                          + "},"
+
+                          + "{\"connection_start\": 0, "
                           + "\"transaction_start\": 1, "
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
@@ -116,7 +115,104 @@ public class BreakingDataTransactions {
                           + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
                           + "\"load_id\": 123412423 "
-                          + "}",
+                          + "},"
+
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
+                          + "\"database_type\": \"cloud_sql\", "
+                          + "\"transaction_type\": \"read\", "
+                          + "\"load_id\": 123412424 "
+                          + "},"
+                        + "]",
+                      now),
+                  TimestampedValue.of(
+                      "[ "
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
+                          + "\"database_type\": \"cloud_sql\", "
+                          + "\"transaction_type\": \"read\", "
+                          + "\"load_id\": 123412425 "
+                          + "},"
+
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
+                          + "\"database_type\": \"cloud_sql\", "
+                          + "\"transaction_type\": \"read\", "
+                          + "\"load_id\": 123412426 "
+                          + "},"
+
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
+                          + "\"database_type\": \"cloud_sql\", "
+                          + "\"transaction_type\": \"read\", "
+                          + "\"load_id\": 123412427 "
+                          + "},"
+
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
+                          + "\"database_type\": \"cloud_sql\", "
+                          + "\"transaction_type\": \"read\", "
+                          + "\"load_id\": 123412428 "
+                          + "},"
+                        + "]",
+                      now.plus(Duration.standardSeconds(2))),
+                  TimestampedValue.of(
+                      "[ "
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
+                          + "\"database_type\": \"cloud_sql\", "
+                          + "\"transaction_type\": \"read\", "
+                          + "\"load_id\": 123412429 "
+                          + "},"
+
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
+                          + "\"database_type\": \"cloud_sql\", "
+                          + "\"transaction_type\": \"read\", "
+                          + "\"load_id\": 123412430 "
+                          + "},"
+
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
+                          + "\"database_type\": \"cloud_sql\", "
+                          + "\"transaction_type\": \"read\", "
+                          + "\"load_id\": 123412431 "
+                          + "},"
+
+                          + "{\"connection_start\": 0, "
+                          + "\"transaction_start\": 1, "
+                          + "\"transaction_end\": 2, "
+                          + "\"connection_end\": 4, "
+                          + "\"success\": true, "
+                          + "\"database_type\": \"cloud_sql\", "
+                          + "\"transaction_type\": \"read\", "
+                          + "\"load_id\": 123412432 "
+                          + "},"
+                        + "]",
                       now.plus(Duration.standardSeconds(8)))));
     }
 
@@ -245,7 +341,6 @@ public class BreakingDataTransactions {
     Firestore db;
 
     public void setupOnce() {
-      System.out.println("I'm setting up Firestore");
       GoogleCredentials credentials = null;
       try {
         credentials = GoogleCredentials.getApplicationDefault();
@@ -313,12 +408,18 @@ public class BreakingDataTransactions {
     @ProcessElement
     public void process(@Element String input, @Timestamp Instant timestamp, OutputReceiver<T> o) {
       try {
-        T d = gson.fromJson(input, clazz);
-        o.output(d);
+
+        Type type = new TypeToken<List<T>>() {}.getType();
+
+        List<T> array = gson.fromJson(input,type);
+
+        for(T e : array) {
+          o.output(gson.fromJson(e.toString(),clazz));
+        }
+
       } catch (Exception ex) {
-        System.out.println(ex);
+        System.out.println("Error in processing:" + ex);
       }
-      //System.out.println(input);
     }
   }
 }
