@@ -57,23 +57,22 @@ import org.joda.time.Instant;
 public class BreakingDataTransactions {
 
     // When true, this pulls from the specified Pub/Sub topic
-  static Boolean REAL = false;
+  static Boolean REAL = true;
     // when set to true the job gets deployed to Cloud Dataflow
-  static Boolean DEPLOY = false;
+  static Boolean DEPLOY = true;
 
   public static void main(String[] args) {
     DataflowPipelineOptions options =
         PipelineOptionsFactory.create().as(DataflowPipelineOptions.class);
 
-    Pipeline p;
-    if (DEPLOY)
-      p = Pipeline.create(options);
-    else
-      p = Pipeline.create();
-
     options.setProject("gweiss-simple-path");
-    options.setRunner(DataflowRunner.class);
-    options.setTempLocation("gs://gweiss-breaking-test/tmp");
+
+    if (DEPLOY) {
+        options.setRunner(DataflowRunner.class);
+        options.setTempLocation("gs://gweiss-breaking-test/tmp");
+    }
+
+    Pipeline p = Pipeline.create(options);
 
     PCollection<String> jsonStrings;
 
@@ -89,7 +88,7 @@ public class BreakingDataTransactions {
                       "[ "
                           + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
                           + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
-                          + "\"operation\": \"read\", "
+                          + "\"operation\": \"write\", "
                           + "\"success\": true, "
                           + "\"connection_start\": 1219110.809202855, "
                           + "\"connection_end\": 1219110.814320733, "
@@ -107,7 +106,7 @@ public class BreakingDataTransactions {
                           
                           + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
                           + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
-                          + "\"operation\": \"read\", "
+                          + "\"operation\": \"write\", "
                           + "\"success\": true, "
                           + "\"connection_start\": 1219110.80463735, "
                           + "\"connection_end\": 1219110.816569818, "
@@ -161,7 +160,7 @@ public class BreakingDataTransactions {
                           
                           + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
                           + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
-                          + "\"operation\": \"read\", "
+                          + "\"operation\": \"write\", "
                           + "\"success\": true, "
                           + "\"connection_start\": 1219110.833400321, "
                           + "\"connection_end\": 1219110.83450169, "
@@ -227,7 +226,7 @@ public class BreakingDataTransactions {
                       "[ "
                           + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
                           + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
-                          + "\"operation\": \"read\", "
+                          + "\"operation\": \"write\", "
                           + "\"success\": true, "
                           + "\"connection_start\": 1219110.845508843, "
                           + "\"connection_end\": 1219110.846875106, "
@@ -245,7 +244,7 @@ public class BreakingDataTransactions {
                           
                           + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
                           + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
-                          + "\"operation\": \"read\", "
+                          + "\"operation\": \"write\", "
                           + "\"success\": true, "
                           + "\"connection_start\": 1219110.853090156, "
                           + "\"connection_end\": 1219110.85418448, "
@@ -293,7 +292,7 @@ public class BreakingDataTransactions {
                           
                           + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
                           + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
-                          + "\"operation\": \"read\", "
+                          + "\"operation\": \"write\", "
                           + "\"success\": true, "
                           + "\"connection_start\": 1219110.856722351, "
                           + "\"connection_end\": 1219110.857815271, "
@@ -330,12 +329,8 @@ public class BreakingDataTransactions {
                           return r;
                         }));
 
-        FireStoreOutput fsOut = new FireStoreOutput();
-        fsOut.setupOnce();
-
           // this node will (hopefully) actually write out to Firestore
         result.apply(ParDo.of(new FireStoreOutput()));
-
 
         MapElements.<String>into(TypeDescriptors.strings())
             .<Result>via(
@@ -359,7 +354,7 @@ public class BreakingDataTransactions {
     public ResultAggregate addInput(ResultAggregate mutableAccumulator, Data input) {
       mutableAccumulator.count += 1;
       mutableAccumulator.fail += (input.success) ? 0 : 1;
-      mutableAccumulator.latencySum += input.connection_end - input.connection_start;
+      mutableAccumulator.latencySum += (input.transaction_end - input.transaction_start);
       //System.out.println("addingInput");
       return mutableAccumulator;
     }
@@ -400,7 +395,7 @@ public class BreakingDataTransactions {
   @DefaultCoder(AvroCoder.class)
   public static class ResultAggregate {
     public int fail;
-    public int latencySum;
+    public float latencySum;
     public int count;
   }
 
@@ -427,17 +422,28 @@ public class BreakingDataTransactions {
 
     Firestore db;
 
-    public void setupOnce() {
+    @Setup
+    public void setup() {
       GoogleCredentials credentials = null;
+      FirebaseApp firebaseApp = null;
       try {
-        credentials = GoogleCredentials.getApplicationDefault();
+        List<FirebaseApp> firebaseApps = FirebaseApp.getApps();
+        if(firebaseApps!=null && !firebaseApps.isEmpty()){
+            for(FirebaseApp app : firebaseApps){
+                if(app.getName().equals(FirebaseApp.DEFAULT_APP_NAME))
+                    firebaseApp = app;
+            }
+        }
+        else {
+            credentials = GoogleCredentials.getApplicationDefault();
+            FirebaseOptions options =
+                new FirebaseOptions.Builder()
+                    .setCredentials(credentials)
+                    .setProjectId("gweiss-simple-path")
+                    .build();
 
-        FirebaseOptions options =
-            new FirebaseOptions.Builder()
-                .setCredentials(credentials)
-                .setProjectId("gweiss-simple-path")
-                .build();
-        FirebaseApp.initializeApp(options);
+            firebaseApp = FirebaseApp.initializeApp(options);
+        }
 
         //db = FirestoreClient.getFirestore();
       } catch (IOException e) {
