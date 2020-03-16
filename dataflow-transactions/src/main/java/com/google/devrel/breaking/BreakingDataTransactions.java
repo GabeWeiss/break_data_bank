@@ -92,9 +92,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412421 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
 
                           + "{\"connection_start\": 0, "
@@ -102,9 +102,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412422 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
 
                           + "{\"connection_start\": 0, "
@@ -112,9 +112,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412423 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
 
                           + "{\"connection_start\": 0, "
@@ -122,9 +122,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412424 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
                         + "]",
                       now),
@@ -135,9 +135,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412425 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
 
                           + "{\"connection_start\": 0, "
@@ -145,9 +145,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412426 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
 
                           + "{\"connection_start\": 0, "
@@ -155,9 +155,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412427 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
 
                           + "{\"connection_start\": 0, "
@@ -165,12 +165,12 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412428 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
                         + "]",
-                      now.plus(Duration.standardSeconds(2))),
+                      now.plus(Duration.standardSeconds(6))),
                   TimestampedValue.of(
                       "[ "
                           + "{\"connection_start\": 0, "
@@ -178,9 +178,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412429 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
 
                           + "{\"connection_start\": 0, "
@@ -188,9 +188,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412430 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
 
                           + "{\"connection_start\": 0, "
@@ -198,9 +198,9 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412431 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
 
                           + "{\"connection_start\": 0, "
@@ -208,12 +208,12 @@ public class BreakingDataTransactions {
                           + "\"transaction_end\": 2, "
                           + "\"connection_end\": 4, "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
                           + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412432 "
+                          + "\"job_id\": \"eNEtTxIHdpPUlRUK1nCz\","
+                          + "\"workload_id\": \"964c84a2-e8ee-4724-83aa-8af567f46cfe\" "
                           + "},"
                         + "]",
-                      now.plus(Duration.standardSeconds(8)))));
+                      now.plus(Duration.standardSeconds(12)))));
     }
 
     // Convert to Schema Object
@@ -226,7 +226,7 @@ public class BreakingDataTransactions {
     PCollection<Result> result =
         dataCollection
             .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
-            .apply(WithKeys.of(x -> x.transaction_type + "-" + x.load_id))
+            .apply(WithKeys.of(x -> x.transaction_type + "-" + x.job_id))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), AvroCoder.of(Data.class)))
             .apply(Combine.<String, Data, Result>perKey(new DataAnalysis()))
             .apply(Reify.windowsInValue())
@@ -236,7 +236,7 @@ public class BreakingDataTransactions {
                           Result r = new Result();
                           String key = x.getKey();
                           r.query_action = key.substring(0, key.indexOf("-"));
-                          r.load_id = key.substring(key.indexOf("-") + 1);
+                          r.job_id = key.substring(key.indexOf("-") + 1);
                           r.average_latency = x.getValue().getValue().average_latency;
                           r.failure_percent = x.getValue().getValue().failure_percent;
                           r.timestamp = x.getValue().getTimestamp().getMillis();
@@ -273,7 +273,7 @@ public class BreakingDataTransactions {
       mutableAccumulator.count += 1;
       mutableAccumulator.fail += (input.success) ? 0 : 1;
       mutableAccumulator.latencySum += input.connection_end - input.connection_start;
-      System.out.println("addingInput");
+      //System.out.println("addingInput");
       return mutableAccumulator;
     }
 
@@ -293,21 +293,21 @@ public class BreakingDataTransactions {
       Result result = new Result();
       result.average_latency = accumulator.latencySum / accumulator.count;
       result.failure_percent = ((float) accumulator.fail / (float) accumulator.count) * 100;
-      System.out.println("I'm extracting some output");
+      //System.out.println("I'm extracting some output");
       return result;
     }
   }
 
   @DefaultCoder(AvroCoder.class)
   public static class Data {
-    public int connection_start;
-    public int transaction_start;
-    public int transaction_end;
-    public int connection_end;
-    public boolean success;
-    public String database_type;
-    public String transaction_type;
-    public int load_id;
+    public float connection_start;  // when connection started
+    public float transaction_start; // when transaction started
+    public float transaction_end;   // when transaction ended
+    public float connection_end;    // when connection ended
+    public boolean success;         // whether it succeeded or not
+    public String transaction_type; // read/write
+    public String workload_id;      // ignored, this is the load-gen-script's UUID
+    public String job_id;           // holds the Firestore doc ID for db run (type, read/write pattern, intensity)
   }
 
   @DefaultCoder(AvroCoder.class)
@@ -322,7 +322,7 @@ public class BreakingDataTransactions {
     public float failure_percent;
     public float average_latency;
     @Nullable public String query_action;
-    @Nullable public String load_id;
+    @Nullable public String job_id;
     public long timestamp;
 
     @Override
@@ -364,15 +364,16 @@ public class BreakingDataTransactions {
       DocumentReference docRef = db.collection("events")
                                    .document("next2020")
                                    .collection("transactions")
+                                   .document(result.job_id)
+                                   .collection("transactions")
                                    .document();
-      System.out.println(docRef.getId());
+      //System.out.println(docRef.getId());
       // Add document data  with id "alovelace" using a hashmap
       Map<String, Object> data = new HashMap<>();
       data.put("failure_percent", result.failure_percent);
       data.put("average_latency", result.average_latency);
       data.put("query_action", result.query_action);
       data.put("timestamp", result.timestamp);
-      data.put("job_id", result.load_id);
 
       // asynchronously write data
       ApiFuture<WriteResult> writeResult = docRef.set(data);
