@@ -146,7 +146,66 @@ async def fail():
 
 @app.route('/run', methods=['POST'])
 async def run():
-    return 'run', 200
+    # validate we have the data we need from the caller
+    form = await request.json
+    try:
+        # Note, for fail run, these are the only two we care about
+        read_pattern = form["read_pattern"]
+        write_pattern = form["write_pattern"]
+        intensity = form["intensity"]
+        sql_size = form["sql_size"]
+        sql_rep_size = form["sql_rep_size"]
+        spanner_size = form["spanner_size"]
+    except: 
+        return "\nMissing required parameters:\n 'read_pattern'\n 'write_pattern'\n 'intensity'\n 'sql_size'\n 'sql_rep_size'\n 'spanner_size'\nEnsure you have them in your POST method.\n\n", 400
+
+    job_ids = []
+    job_ids.append( await set_firestore(CLOUD_SQL,
+                                     int(sql_size),
+                                     int(read_pattern),
+                                     int(write_pattern),
+                                     int(intensity),
+                                     int(intensity))
+                )
+    job_ids.append( await set_firestore(CLOUD_SQL_REPLICA,
+                                     int(sql_rep_size),
+                                     int(read_pattern),
+                                     int(write_pattern),
+                                     int(intensity),
+                                     int(intensity))
+                )
+    job_ids.append( await set_firestore(CLOUD_SPANNER,
+                                     int(spanner_size),
+                                     int(read_pattern),
+                                     int(write_pattern),
+                                     int(intensity),
+                                     int(intensity))
+                )
+    jobs_len = len(job_ids)
+    if jobs_len < 1:
+        return "Unable to create load jobs.", 503
+
+    resource_ids = []
+    resource_ids.append( await fetch_resource_id(CLOUD_SQL, sql_size, gDuration))
+    resource_ids.append( await fetch_resource_id(CLOUD_SQL_REPLICA, sql_rep_size, gDuration))
+    resource_ids.append( await fetch_resource_id(CLOUD_SPANNER, spanner_size, gDuration))
+    
+    if len(resource_ids) < 1:
+        return "Unable to fetch an available database resource.", 503
+
+        # Starting up load gen!
+    #run_result = await do_run(resource_id, jobs_id, CLOUD_SQL,
+    #                          read_pattern, 3,
+    #                          write_pattern, 3)
+
+    return_json = '{ "job_ids": ['
+    for x in range(jobs_len):
+        return_json = return_json + "\"{}\"".format(job_ids[x])
+        if x < jobs_len - 1:
+            return_json = return_json + ","
+    return_json = return_json + "] }"
+
+    return "\n{}\n".format(return_json), 200
 
 @app.route('/cached', methods=['POST'])
 async def cached():
