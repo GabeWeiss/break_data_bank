@@ -149,7 +149,6 @@ async def run():
     # validate we have the data we need from the caller
     form = await request.json
     try:
-        # Note, for fail run, these are the only two we care about
         read_pattern = form["read_pattern"]
         write_pattern = form["write_pattern"]
         intensity = form["intensity"]
@@ -209,6 +208,42 @@ async def run():
 
 @app.route('/cached', methods=['POST'])
 async def cached():
+    form = await request.json
+    # Validate parameters
+    try:
+        mode = form["mode"]
+    except:
+        return "\nNeed to specify which cached mode you want ('fail' or 'run')\n", 400
+    
+    read_pattern = None
+    write_pattern = None
+    intensity = None
+    sql_size = None
+    sql_rep_size = None
+    spanner_size = None
+
+    if mode == "fail":
+        try:
+            read_pattern = int(form["read_pattern"])
+            write_pattern = int(form["write_pattern"])
+            intensity = 3
+            sql_size = 1
+            return '{ "job_ids": ["sql-1-3"] }', 200
+        except:
+            return "\Missing required parameters:\n 'read_pattern'\n 'write_pattern'\n", 400
+
+    if mode == "run":
+        try:
+            read_pattern = int(form["read_pattern"])
+            write_pattern = int(form["write_pattern"])
+            intensity = int(form["intensity"])
+            sql_size = int(form["sql_size"])
+            sql_rep_size = int(form["sql_rep_size"])
+            spanner_size = int(form["spanner_size"])
+            return "{{ \"job_ids\": [\"sql-{}-{}\", \"sql-rep-{}-{}\", \"spanner-{}-{}\"] }}".format(sql_size, intensity, sql_rep_size, intensity, spanner_size, intensity), 200
+        except: 
+            return "\nMissing required parameters:\n 'read_pattern'\n 'write_pattern'\n 'intensity'\n 'sql_size'\n 'sql_rep_size'\n 'spanner_size'\nEnsure you have them in your POST method.\n\n", 400
+
     return 'cached', 200
 
 
