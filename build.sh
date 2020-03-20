@@ -1,5 +1,12 @@
 #!/bin/sh
 
+if [ -z "$1" ]
+then
+    echo "Need to pass in a version number in the format vn.n.n, e.g. v0.0.1."
+    echo "Please check the config.yaml file in the load-gen-service directory for the current set version."
+    return 1 2> /dev/null || exit 1
+fi
+
 projectId=$BREAKING_PROJECT_ID
 #pubsubId=$BREAKING_PUBSUB_ID
 if [ -z $projectId ]
@@ -45,7 +52,7 @@ then
     echo "Wasn't able to build the loadgen-script"
     return 1 2> /dev/null || exit 1
 fi
-docker tag breaking-loadgen-script gcr.io/$projectId/breaking-loadgen
+docker tag breaking-loadgen-script gcr.io/$projectId/breaking-loadgen:$1
 if [ $? -ne 0 ]
 then
     popd
@@ -64,6 +71,7 @@ popd
 
 # Build and push load gen service
 pushd load-gen-service
+sed -i '' "s#\:v[0-9]\.[0-9]\.[0-9]*#\:$1#" config.yaml
 docker build -t breaking-loadgen-service .
 if [ $? -ne 0 ]
 then
