@@ -1,5 +1,11 @@
 #!/bin/sh
 
+# NOTE: Variable passed in is a version string, format is: 'vx.x.x'
+# Version string only applies to the load-gen-script container because
+# the rest will update fine in the Cloud Run instances. load-gen-script
+# is picked up as a k8s job by the load-gen-server, and cached, so we
+# need to use a different version number to ensure that the proper
+# version of the script is being used.
 if [ -z "$1" ]
 then
     echo "Need to pass in a version number in the format vn.n.n, e.g. v0.0.1."
