@@ -1,6 +1,47 @@
 #!/bin/sh
 
-# NOTE: Variable passed in is a version string, format is: 'vx.x.x'
+# NOTE: This script will attempt to use a set of defaults for the
+# region to set up the services. If they aren't set, it will fall
+# back (and notify user) to an environment variable.
+defaultRegion=$(gcloud config get-value run/region 2> /dev/null)
+if [ -z "$defaultRegion" ]
+then
+    defaultRegion=$(gcloud config get-value compute/region 2> /dev/null)
+    if [ -z "$defaultRegion" ]
+    then
+        defaultRegion=$DEMO_REGION
+    fi
+fi
+
+# if we still have no defaultRegion then all our efforts failed
+# and tell them they need to set the variables so I can pick it up
+if [ -z "$defaultRegion" ]
+then
+    echo ""
+    echo "Wasn't able to determine a region to start our Cloud Run services."
+    echo "Please either set a region using 'gcloud config set run/region <region>'"
+    echo "or set an environment variable 'DEMO_REGION' with the name of the region."
+    echo "Ensure that the region is a valid one. Regions can be found by running"
+    echo "'gcloud compute regions list'."
+    echo ""
+    return 1 2> /dev/null || exit 1
+fi
+
+
+# NOTE: The script needs authorization on the current project
+# where you'll be deploying things. If you don't have permission
+# as your user to do all the things for the demo, you need to
+# find a user that is for deploying purposes. These permissions are:
+# - Cloud SQL Client
+# - Dataflow Admin
+# - Firebase Develop Admin
+# - Pub/Sub Editor
+# - Kubernetes Engine Admin
+# (There may be more, I'll add them here when I get told about problems)
+gcloud auth login
+projectId=$(gcloud config get-value project)
+
+# NOTE: Positional variable passed in is a version string, format is: 'vx.x.x'
 # Version string only applies to the load-gen-script container because
 # the rest will update fine in the Cloud Run instances. load-gen-script
 # is picked up as a k8s job by the load-gen-server, and cached, so we
@@ -13,13 +54,15 @@ then
     return 1 2> /dev/null || exit 1
 fi
 
-projectId=$BREAKING_PROJECT_ID
-#pubsubId=$BREAKING_PUBSUB_ID
 if [ -z $projectId ]
 then
-    echo "You need to set BREAKING_PROJECT_ID and BREAKING_PUBSUB_ID to continue."
+    echo "Something went wrong with authorization with gcloud. Please try again and be sure to authorize when it pops up in your browser."
     return 1 2> /dev/null || exit 1
 fi
+
+##############################################
+## Building and deploying containers to GCR ##
+##############################################
 
 # Building and deploying the db-lease container
 pushd db-lease-container
@@ -127,3 +170,10 @@ then
 fi
 # Finished the breaking-orchestrator script build and push
 popd
+
+
+
+############################
+## Deploying to Cloud Run ##
+############################
+
