@@ -1,5 +1,25 @@
 #!/bin/sh
 
+# NOTE: Cloud Run containers need a service account 
+# with appropriate permissions to run. To this end,
+# you'll need a service account created with the following
+# permissions:
+# - Cloud SQL Client
+# - Dataflow Admin
+# - Firebase Develop Admin
+# - Pub/Sub Editor
+# - Kubernetes Engine Admin
+# Then take the name of the service account, and set it
+# to the environment variable DEMO_SERVICE_ACCOUNT before
+# running this script
+serviceAccount=$DEMO_SERVICE_ACCOUNT
+if [ -z $serviceAccount ]
+then
+    echo ""
+    echo "You need to have a service account created and set. Please check the comment at the top of this build script for directions."
+    echo ""
+fi
+
 # NOTE: This script will attempt to use a set of defaults for the
 # region to set up the services. If they aren't set, it will fall
 # back (and notify user) to an environment variable.
@@ -38,7 +58,7 @@ fi
 # - Pub/Sub Editor
 # - Kubernetes Engine Admin
 # (There may be more, I'll add them here when I get told about problems)
-gcloud auth login
+gcloud auth login --brief
 projectId=$(gcloud config get-value project)
 
 # NOTE: Positional variable passed in is a version string, format is: 'vx.x.x'
@@ -177,3 +197,32 @@ popd
 ## Deploying to Cloud Run ##
 ############################
 
+# db-lease Cloud Run service
+gcloud run deploy breaking-db-lease --platform=managed --port=5000 --allow-unauthenticated --service-account=$serviceAccount --region=$defaultRegion --image=gcr.io/$projectId/breaking-db-lease
+
+if [ $? -ne 0 ]
+then
+    popd
+    echo "Couldn't deploy the db-lease Cloud Run service"
+    return 1 2> /dev/null || exit 1
+fi
+
+# load-gen-service Cloud Run service
+gcloud run deploy breaking-load-service --platform=managed --port=5000 --allow-unauthenticated --service-account=$serviceAccount --region=$defaultRegion --image=gcr.io/$projectId/breaking-loadgen-service
+
+if [ $? -ne 0 ]
+then
+    popd
+    echo "Couldn't deploy the load-gen-service Cloud Run service"
+    return 1 2> /dev/null || exit 1
+fi
+
+# orchestrator Cloud Run service
+gcloud run deploy breaking-orchestrator --platform=managed --port=5000 --allow-unauthenticated --service-account=$serviceAccount --region=$defaultRegion --image=gcr.io/$projectId/breaking-orchestrator
+
+if [ $? -ne 0 ]
+then
+    popd
+    echo "Couldn't deploy the orchestrator Cloud Run service"
+    return 1 2> /dev/null || exit 1
+fi
