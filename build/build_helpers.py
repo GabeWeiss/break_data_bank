@@ -3,16 +3,13 @@ import re
 import subprocess
 
 import firebase_admin
-from firebase_admin import credentials, db, firestore
+from firebase_admin import credentials, firestore
+
+db = None
 
 def add_arguments(parser_obj):
     parser_obj.add_argument("-v", "--version", required=True,help="This is the version specified for the load-gen-script container. Should be in the format 'vx.x.x', e.g. v0.0.2")
     parser_obj.add_argument("-r", "--region", help="Specify a region to create your Cloud Run instances")
-
-def initialize_firestore():
-    # Passing "None" here means use the application default credentials
-    firebase_admin.initialize_app(None)
-    db = firestore.client()
 
 def auth_gcloud():
     try:
@@ -106,11 +103,20 @@ def fetch_project_id():
     print("Something went wrong with authorization with gcloud. Please try again and be sure to authorize when it pops up in your browser.")
     return None
 
-def create_sql_instances(default_region, vm_types, instance_names):
+def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names):
     i = 0
-    for tier in vm_types:
-        instance_name = instance_names[i]
-        db_create_process = subprocess.run(["gcloud beta sql instances create {}".format(instance_name), "--database-version=POSTGRES_11", "--region={}".format(default_region), "--no-backup", "--no-assign-ip", "--root-password=postgres", "--tier={}".format(tier), "--network=default"], shell=True, capture_output=True, text=True)
+    for name in instance_names:
+        cpu = vm_cpus[i]
+        ram = vm_ram[i]
+        # Need to special case our initial instance because we
+        # want it to be weak intentionally, and custom machines
+        # aren't weak enough...so using the --tier flag to create
+        # a micro instance (.6 GiB RAM and 1 vCPU) as our first instace
+        db_create_process = None
+        if cpu == "1":
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network=default".format(name, default_region, "db-f1-micro")], shell=True, capture_output=True, text=True)
+        else:
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network=default".format(name, default_region, cpu, ram)], shell=True, capture_output=True, text=True)
 
         if db_create_process.returncode != 0:
             err = db_create_process.stderr
@@ -120,25 +126,58 @@ def create_sql_instances(default_region, vm_types, instance_names):
                 # and perhaps something went wrong, so they're retrying
             x = re.search("is the subject of a conflict", err)
             if not x:
-                print("There was a problem creating instance: '{}'".format(instance_name))
+                print("There was a problem creating instance: '{}'".format(name))
                 print (err)
                 return False
 
-        print("Instance '{}' of tier '{}' created.".format(instance_name, tier))
+        print("Instance '{}' created with '{}' CPU(s) and '{}' RAM.".format(name, cpu, ram))
         i = i + 1
     return True
 
 
+def initialize_firestore():
+    global db
+    # Passing "None" here means use the application default credentials
+    try:
+        firebase_admin.initialize_app(None)
+        db = firestore.client()
+    except:
+        print("There was a problem initializing Firestore")
+        return False
+    return True
+
+# This is pretty hacky. There's likely a cleaner way
+# to do this, and we'll have to rejigger this when we
+# add more than one database resource per type/size
 def set_sql_db_resources(names):
+    global db
+
     cloud_sql_base_collection = db.collection(u'db_resources').document(u'cloud-sql').collection(u'sizes')
 
     cloud_sql_sm_collection = cloud_sql_base_collection.document(u'1x').collection(u'resources')
 
-    cloud_sql_med_collection = cloud_sql_base_collection.document(u'1x').collection(u'resources')
+    cloud_sql_med_collection = cloud_sql_base_collection.document(u'2x').collection(u'resources')
 
-    cloud_sql_lrg_collection = cloud_sql_base_collection.document(u'1x').collection(u'resources')
+    cloud_sql_lrg_collection = cloud_sql_base_collection.document(u'4x').collection(u'resources')
 
+    i = 0
     for name in names:
         db_details_process = subprocess.run(["gcloud sql instances list | grep {}".format(name)], shell=True, capture_output=True, text=True)
 
-        print(name.stdout)
+        if db_details_process.returncode != 0:
+            print("Something went wrong getting our Cloud SQL instance details, try again later.")
+            return False
+        out = db_details_process.stdout.split()[5]
+        cloud_sql_doc = None
+        if i == 0:
+            cloud_sql_doc = cloud_sql_sm_collection.document(out)
+        elif i == 1:
+            cloud_sql_doc = cloud_sql_med_collection.document(out)
+        elif i == 2:
+            cloud_sql_doc = cloud_sql_lrg_collection.document(out)
+
+        cloud_sql_doc.set({ u'expiry': 0 })
+        print("Added {} to Firestore".format(name))
+        i = i + 1
+
+    return True

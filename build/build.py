@@ -87,36 +87,43 @@ print("Successfully created our service account\n")
 
 # Cloud SQL
 
-print("Starting to create Cloud SQL instances (This take awhile, don't panic)\n")
+print("Starting to create Cloud SQL instances (This takes awhile, don't panic)\n")
 
-vm_types = ['db-f1-micro', 'db-n1-standard-4', 'db-n1-standard-16']
-db_name_version = "01"
+vm_cpus = [ "1", "4", "16" ]
+vm_ram = [ "1GiB", "4GiB", "16GiB" ]
+db_name_version = "06"
 instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
 
-success = build_helpers.create_sql_instances(default_region, vm_types, instance_names)
+success = build_helpers.create_sql_instances(default_region, vm_cpus, vm_ram, instance_names)
 if not success:
     sys.exit(1)
 
-
-
-
-print("\nFinished creating Cloud SQL instances\n")
+print("Finished creating Cloud SQL instances\n")
 
 print("Starting to create Cloud SQL w/ replica instances (another big wait incoming\n")
 
 # TODO: Create Cloud SQL w/ replica instances
 
-print ("\nFinished creating Cloud SQL w/ replica instances\n")
+print ("Finished creating Cloud SQL w/ replica instances\n")
 
 print("Starting to create Cloud Spanner instances\n")
 
 # TODO: Create Cloud Spanner instances
 
-print("\nFinished creating Cloud Spanner instances\n")
+print("Finished creating Cloud Spanner instances\n")
 
 #######################################
 ## Insert DB metadata into Firestore ##
 #######################################
 
-#build_helpers.initialize_firestore()
-#build_helpers.set_sql_db_resources(instance_names)
+print("Starting to add all database resource meta data to Firestore")
+
+success = build_helpers.initialize_firestore()
+if not success:
+    sys.exit(1)
+
+success = build_helpers.set_sql_db_resources(instance_names)
+if not success:
+    sys.exit(1)
+
+print("\n Finished adding all database resource metadata to Firestore")
