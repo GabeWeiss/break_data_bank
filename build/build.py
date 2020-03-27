@@ -25,9 +25,9 @@ n = input()
 
 print("Starting gcloud authentication")
 
-#success = build_helpers.auth_gcloud()
-#if not success:
-#    sys.exit(1)
+success = build_helpers.auth_gcloud()
+if not success:
+    sys.exit(1)
 
 print("Successfully authenticated gcloud\n")
 
