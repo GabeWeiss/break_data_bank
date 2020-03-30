@@ -25,9 +25,9 @@ n = input()
 
 print("Starting gcloud authentication")
 
-#success = build_helpers.auth_gcloud()
-#if not success:
-#    sys.exit(1)
+success = build_helpers.auth_gcloud()
+if not success:
+    sys.exit(1)
 
 print("Successfully authenticated gcloud\n")
 
@@ -78,9 +78,9 @@ print("Enabling GCP services/APIs")
 
 # There are a number of services that we need in order to build
 # this demo. This call enables the necessary services in your project
-#success = build_helpers.enable_services()
-#if not success:
-#    sys.exit(1)
+success = build_helpers.enable_services()
+if not success:
+    sys.exit(1)
 
 print("Successfully enabled all required services\n")
 
@@ -130,13 +130,13 @@ print("Finished creating Cloud Spanner instances\n")
 
 print("Starting to add all database resource meta data to Firestore\n")
 
-#success = build_helpers.initialize_firestore()
-#if not success:
-#    sys.exit(1)
+success = build_helpers.initialize_firestore()
+if not success:
+    sys.exit(1)
 
-#success = build_helpers.set_sql_db_resources(instance_names)
-#if not success:
-#    sys.exit(1)
+success = build_helpers.set_sql_db_resources(instance_names)
+if not success:
+    sys.exit(1)
 
 print("Finished adding all database resource metadata to Firestore\n")
 
@@ -146,9 +146,9 @@ print("Finished adding all database resource metadata to Firestore\n")
 
 print("Starting to build and deploy demo microservice containers\n")
 
-#success = build_helpers.deploy_containers(project_id, args.version)
-#if not success:
-#    sys.exit(1)
+success = build_helpers.deploy_containers(project_id, args.version)
+if not success:
+    sys.exit(1)
 
 print("Finished building and deploying demo microservice containers\n")
 
