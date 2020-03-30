@@ -25,9 +25,9 @@ n = input()
 
 print("Starting gcloud authentication")
 
-success = build_helpers.auth_gcloud()
-if not success:
-    sys.exit(1)
+#success = build_helpers.auth_gcloud()
+#if not success:
+#    sys.exit(1)
 
 print("Successfully authenticated gcloud\n")
 
@@ -66,17 +66,17 @@ print("Enabling GCP services/APIs")
 
 # There are a number of services that we need in order to build
 # this demo. This call enables the necessary services in your project
-success = build_helpers.enable_services()
-if not success:
-    sys.exit(1)
+#success = build_helpers.enable_services()
+#if not success:
+#    sys.exit(1)
 
 print("Successfully enabled all required services\n")
 
 print("Creating and fetching service account (Note, you'll get an email about downloading a service key if you haven't downloaded it yet)")
 
-service_account = build_helpers.create_service_account(project_id)
-if service_account == None:
-    sys.exit(1)
+#service_account = build_helpers.create_service_account(project_id)
+#if service_account == None:
+#    sys.exit(1)
 
 print("Successfully created our service account\n")
 
@@ -116,14 +116,34 @@ print("Finished creating Cloud Spanner instances\n")
 ## Insert DB metadata into Firestore ##
 #######################################
 
-print("Starting to add all database resource meta data to Firestore")
+print("Starting to add all database resource meta data to Firestore\n")
 
-success = build_helpers.initialize_firestore()
+#success = build_helpers.initialize_firestore()
+#if not success:
+#    sys.exit(1)
+
+#success = build_helpers.set_sql_db_resources(instance_names)
+#if not success:
+#    sys.exit(1)
+
+print("Finished adding all database resource metadata to Firestore\n")
+
+#################################
+## Build and deploy containers ##
+#################################
+
+success = build_helpers.deploy_resource_container(project_id)
 if not success:
     sys.exit(1)
 
-success = build_helpers.set_sql_db_resources(instance_names)
+success = build_helpers.deploy_load_gen_script_container(project_id)
 if not success:
     sys.exit(1)
 
-print("\n Finished adding all database resource metadata to Firestore")
+success = build_helpers.deploy_load_gen_service_container(project_id)
+if not success:
+    sys.exit(1)
+
+success = build_helpers.deploy_orchestrator_container(project_id)
+if not success:
+    sys.exit(1)

@@ -132,6 +132,8 @@ def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names):
 
         print("Instance '{}' created with '{}' CPU(s) and '{}' RAM.".format(name, cpu, ram))
         i = i + 1
+
+    print("")
     return True
 
 
@@ -180,4 +182,39 @@ def set_sql_db_resources(names):
         print("Added {} to Firestore".format(name))
         i = i + 1
 
+    print("")
+    return True
+
+def deploy_resource_container(project_id):
+    proc = subprocess.run(["docker build -t breaking-db-lease ."], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't build the db-lease container.\n")
+        print(proc.stderr)
+        return False
+    print("Built the db-lease-container")
+
+    proc = subprocess.run(["docker tag breaking-db-lease gcr.io/{}/breaking-db-lease".format(project_id)], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't tag the db-lease container.\n")
+        print(proc.stderr)
+        return False
+    print("Tagged the db-lease-container")
+
+    proc = subprocess.run(["docker push gcr.io/{}/breaking-db-lease".format(project_id)], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't push the db-lease container.\n")
+        print(proc.stderr)
+        return False
+    print("Pushed the db-lease-container")
+
+    print("")
+    return True
+
+def deploy_load_gen_script_container(project_id):
+    return True
+
+def deploy_load_gen_service_container(project_id):
+    return True
+
+def deploy_orchestrator_container(project_id):
     return True
