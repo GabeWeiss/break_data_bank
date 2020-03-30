@@ -210,11 +210,96 @@ def deploy_resource_container(project_id):
     print("")
     return True
 
-def deploy_load_gen_script_container(project_id):
+def deploy_load_gen_script_container(project_id, version):
+    proc = subprocess.run(["docker build -t breaking-loadgen-script ."], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't build the load-gen-script container.\n")
+        print(proc.stderr)
+        return False
+    print("Built the load-gen-script container")
+
+    proc = subprocess.run(["docker tag breaking-loadgen-script gcr.io/{}/breaking-loadgen:{}".format(project_id, version)], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't tag the load-gen-script container.\n")
+        print(proc.stderr)
+        return False
+    print("Tagged the load-gen-script container")
+
+    proc = subprocess.run(["docker push gcr.io/{}/breaking-loadgen".format(project_id)], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't push the load-gen-script container.\n")
+        print(proc.stderr)
+        return False
+    print("Pushed the load-gen-script container")
+
+    print("")
     return True
 
-def deploy_load_gen_service_container(project_id):
+def replace_version_string(version):
+    try:
+        filename = '../load-gen-service/config.yaml'
+        with open(filename, 'r') as file:
+            filedata = file.read()
+
+        filedata = re.sub(':v[0-9]+\.[0-9]+\.[0-9]+', ':{}'.format(version), filedata)
+
+        with open(filename, 'w') as file:
+            file.write(filedata)
+    except:
+        return False
+    return True
+
+def deploy_load_gen_service_container(project_id, version):
+    success = replace_version_string(version)
+    if not success:
+        print("Wasn't able to replace the version string in the configuration file.")
+        return False
+
+    proc = subprocess.run(["docker build -t breaking-loadgen-service ."], cwd='../load-gen-service', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't build the loadgen-service container.\n")
+        print(proc.stderr)
+        return False
+    print("Built the loadgen-service container")
+
+    proc = subprocess.run(["docker tag breaking-loadgen-service gcr.io/{}/breaking-loadgen-service".format(project_id)], cwd='../load-gen-service', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't tag the loadgen-service container.\n")
+        print(proc.stderr)
+        return False
+    print("Tagged the loadgen-service container")
+
+    proc = subprocess.run(["docker push gcr.io/{}/breaking-loadgen-service".format(project_id)], cwd='../load-gen-service', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't push the loadgen-service container.\n")
+        print(proc.stderr)
+        return False
+    print("Pushed the loadgen-service container")
+
+    print("")
     return True
 
 def deploy_orchestrator_container(project_id):
+    proc = subprocess.run(["docker build -t breaking-orchestrator ."], cwd='../orchestrator-container', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't build the orchestrator container.\n")
+        print(proc.stderr)
+        return False
+    print("Built the orchestrator container")
+
+    proc = subprocess.run(["docker tag breaking-orchestrator gcr.io/{}/breaking-orchestrator".format(project_id)], cwd='../orchestrator-container', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't tag the orchestrator container.\n")
+        print(proc.stderr)
+        return False
+    print("Tagged the orchestrator container")
+
+    proc = subprocess.run(["docker push gcr.io/{}/breaking-orchestrator".format(project_id)], cwd='../orchestrator-container', shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't push the orchestrator container.\n")
+        print(proc.stderr)
+        return False
+    print("Pushed the orchestrator container")
+
+    print("")
     return True

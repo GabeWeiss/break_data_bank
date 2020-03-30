@@ -132,18 +132,23 @@ print("Finished adding all database resource metadata to Firestore\n")
 ## Build and deploy containers ##
 #################################
 
+print("Starting to build and deploy demo microservice containers\n")
+
 success = build_helpers.deploy_resource_container(project_id)
 if not success:
     sys.exit(1)
 
-success = build_helpers.deploy_load_gen_script_container(project_id)
+success = build_helpers.deploy_load_gen_script_container(project_id, args.version)
 if not success:
     sys.exit(1)
 
-success = build_helpers.deploy_load_gen_service_container(project_id)
+success = build_helpers.deploy_load_gen_service_container(project_id, args.version)
 if not success:
     sys.exit(1)
 
 success = build_helpers.deploy_orchestrator_container(project_id)
 if not success:
     sys.exit(1)
+
+print("Finished building and deploying demo microservice containers")
+
