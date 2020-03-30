@@ -19,6 +19,13 @@ def auth_gcloud():
         return False
     return True
 
+def auth_docker():
+    try:
+        subprocess.run(["gcloud auth configure-docker"], shell=True, check=True)
+    except:
+        print("There was a problem authorizing gcloud with docker\n")
+        return False
+    return True
 
 def enable_services():
     services_process = subprocess.run(["gcloud services enable run.googleapis.com iam.googleapis.com sqladmin.googleapis.com container.googleapis.com firestore.googleapis.com pubsub.googleapis.com dataflow.googleapis.com containerregistry.googleapis.com spanner.googleapis.com sql-component.googleapis.com"], shell=True, capture_output=True, text=True)
@@ -185,6 +192,21 @@ def set_sql_db_resources(names):
     print("")
     return True
 
+def deploy_containers(project_id, version):
+    if not deploy_resource_container(project_id):
+        return False
+
+    if not deploy_load_gen_script_container(project_id, version):
+        return False
+
+    if not deploy_load_gen_service_container(project_id, version):
+        return False
+
+    if not deploy_orchestrator_container(project_id):
+        return False
+
+    return True
+
 def deploy_resource_container(project_id):
     proc = subprocess.run(["docker build -t breaking-db-lease ."], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -300,6 +322,31 @@ def deploy_orchestrator_container(project_id):
         print(proc.stderr)
         return False
     print("Pushed the orchestrator container")
+
+    print("")
+    return True
+
+def deploy_run_services(service_account, region, project_id, version):
+    proc = subprocess.run(["gcloud run deploy breaking-db-lease --platform=managed --port=5000 --allow-unauthenticated --service-account={} --region={} --image=gcr.io/{}/breaking-db-lease".format(service_account, region, project_id)], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't start the db-lease Cloud Run service")
+        print(proc.stderr)
+        return False
+    print("Started the db-lease Cloud Run service")
+
+    proc = subprocess.run(["gcloud run deploy breaking-load-service --platform=managed --port=5000 --allow-unauthenticated --service-account={} --region={} --image=gcr.io/{}/breaking-loadgen-service".format(service_account, region, project_id)], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't start the load gen Cloud Run service")
+        print(proc.stderr)
+        return False
+    print("Started the load gen Cloud Run service")
+
+    proc = subprocess.run(["gcloud run deploy breaking-orchestrator --platform=managed --port=5000 --allow-unauthenticated --service-account={} --region={} --image=gcr.io/{}/breaking-orchestrator".format(service_account, region, project_id)], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Couldn't start the orchestrator Cloud Run service")
+        print(proc.stderr)
+        return False
+    print("Started the orchestrator Cloud Run service")
 
     print("")
     return True

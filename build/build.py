@@ -32,6 +32,18 @@ print("Starting gcloud authentication")
 print("Successfully authenticated gcloud\n")
 
 
+##################################
+## Authorize gcloud with docker ##
+##################################
+
+print("Since we're using Container Registry for our containers, we need to authorize gcloud with docker. Replying 'yes' will add docker credHelper entry to the configuration file to register gcloud, allowing us to push to Google Container Registry.\n")
+
+success = build_helpers.auth_docker()
+if not success:
+    sys.exit(1)
+
+print("\nDocker configured successfully\n")
+
 ###########################################
 ## Fetch some project metadata for later ##
 ###########################################
@@ -74,9 +86,9 @@ print("Successfully enabled all required services\n")
 
 print("Creating and fetching service account (Note, you'll get an email about downloading a service key if you haven't downloaded it yet)")
 
-#service_account = build_helpers.create_service_account(project_id)
-#if service_account == None:
-#    sys.exit(1)
+service_account = build_helpers.create_service_account(project_id)
+if service_account == None:
+    sys.exit(1)
 
 print("Successfully created our service account\n")
 
@@ -134,21 +146,20 @@ print("Finished adding all database resource metadata to Firestore\n")
 
 print("Starting to build and deploy demo microservice containers\n")
 
-success = build_helpers.deploy_resource_container(project_id)
+#success = build_helpers.deploy_containers(project_id, args.version)
+#if not success:
+#    sys.exit(1)
+
+print("Finished building and deploying demo microservice containers\n")
+
+################################
+## Deploly Cloud Run services ##
+################################
+
+print("Starting to deploy Cloud Run services. This will take a bit for each one\n")
+
+success = build_helpers.deploy_run_services(service_account, default_region, project_id, args.version)
 if not success:
     sys.exit(1)
 
-success = build_helpers.deploy_load_gen_script_container(project_id, args.version)
-if not success:
-    sys.exit(1)
-
-success = build_helpers.deploy_load_gen_service_container(project_id, args.version)
-if not success:
-    sys.exit(1)
-
-success = build_helpers.deploy_orchestrator_container(project_id)
-if not success:
-    sys.exit(1)
-
-print("Finished building and deploying demo microservice containers")
-
+print("Finished deploying Cloud Run services\n")
