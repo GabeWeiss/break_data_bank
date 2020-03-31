@@ -39,7 +39,7 @@ def auth_docker():
     return True
 
 def enable_services():
-    services_process = subprocess.run(["gcloud services enable run.googleapis.com iam.googleapis.com sqladmin.googleapis.com container.googleapis.com firestore.googleapis.com pubsub.googleapis.com dataflow.googleapis.com containerregistry.googleapis.com spanner.googleapis.com sql-component.googleapis.com"], shell=True, capture_output=True, text=True)
+    services_process = subprocess.run(["gcloud services enable run.googleapis.com iam.googleapis.com sqladmin.googleapis.com container.googleapis.com firestore.googleapis.com pubsub.googleapis.com dataflow.googleapis.com containerregistry.googleapis.com spanner.googleapis.com sql-component.googleapis.com storage-component.googleapis.com"], shell=True, capture_output=True, text=True)
     if services_process.returncode != 0:
         print("There was a problem enabling GCP services")
         print(services_process.stderr)
