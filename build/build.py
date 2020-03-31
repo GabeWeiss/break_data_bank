@@ -25,9 +25,9 @@ n = input()
 
 print("Starting gcloud authentication")
 
-success = build_helpers.auth_gcloud()
-if not success:
-    sys.exit(1)
+#success = build_helpers.auth_gcloud()
+#if not success:
+#    sys.exit(1)
 
 print("Successfully authenticated gcloud\n")
 
@@ -38,9 +38,9 @@ print("Successfully authenticated gcloud\n")
 
 print("Since we're using Container Registry for our containers, we need to authorize gcloud with docker. Replying 'yes' will add docker credHelper entry to the configuration file to register gcloud, allowing us to push to Google Container Registry.\n")
 
-success = build_helpers.auth_docker()
-if not success:
-    sys.exit(1)
+#success = build_helpers.auth_docker()
+#if not success:
+#    sys.exit(1)
 
 print("\nDocker configured successfully\n")
 
@@ -48,7 +48,7 @@ print("\nDocker configured successfully\n")
 ## Fetch some project metadata for later ##
 ###########################################
 
-print("Fetching project ID")
+print("Fetching project metadata")
 
 # Need the project id of the current configuration for all
 # kinds of things
@@ -56,9 +56,7 @@ project_id = build_helpers.fetch_project_id()
 if project_id == None:
     sys.exit(1)
 
-print("Retrieved project id: '{}'\n".format(project_id))
-
-print("Fetching region")
+print("Project id: '{}'\n".format(project_id))
 
 # NOTE: This script will attempt to use a set of defaults for the
 # region to set up the services. If they aren't set, it will fall
@@ -67,8 +65,16 @@ default_region = build_helpers.fetch_default_region(args.region)
 if default_region == None:
     sys.exit(1)
 
-print("Retrieved region: '{}'\n".format(default_region))
+print("Region: '{}'\n".format(default_region))
 
+# Currently only allowing this to be overridden by flag, but setting
+# it up to be a method so we could override by other methods later 
+# potentially
+pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub)
+if pubsub_topic == None:
+    sys.exit(1)
+
+print("Pub/Sub topic: '{}'\n".format(pubsub_topic))
 
 ######################################################
 ## Setup for API use (services and service account) ##
@@ -78,20 +84,31 @@ print("Enabling GCP services/APIs")
 
 # There are a number of services that we need in order to build
 # this demo. This call enables the necessary services in your project
-success = build_helpers.enable_services()
-if not success:
-    sys.exit(1)
+#success = build_helpers.enable_services()
+#if not success:
+#    sys.exit(1)
 
 print("Successfully enabled all required services\n")
 
 print("Creating and fetching service account (Note, you'll get an email about downloading a service key if you haven't downloaded it yet)")
 
-service_account = build_helpers.create_service_account(project_id)
-if service_account == None:
-    sys.exit(1)
+#service_account = build_helpers.create_service_account(project_id)
+#if service_account == None:
+#    sys.exit(1)
 
 print("Successfully created our service account\n")
 
+##########################
+## Create Pub/Sub topic ##
+##########################
+
+print("Creating Pub/Sub topic")
+
+success = build_helpers.create_pubsub_topic(pubsub_topic)
+if not success:
+    sys.exit(1)
+
+print("Successfully created Pub/Sub topic")
 
 ###############################
 ## Create Database instances ##
@@ -130,13 +147,13 @@ print("Finished creating Cloud Spanner instances\n")
 
 print("Starting to add all database resource meta data to Firestore\n")
 
-success = build_helpers.initialize_firestore()
-if not success:
-    sys.exit(1)
+#success = build_helpers.initialize_firestore()
+#if not success:
+#    sys.exit(1)
 
-success = build_helpers.set_sql_db_resources(instance_names)
-if not success:
-    sys.exit(1)
+#success = build_helpers.set_sql_db_resources(instance_names)
+#if not success:
+#    sys.exit(1)
 
 print("Finished adding all database resource metadata to Firestore\n")
 
@@ -146,9 +163,9 @@ print("Finished adding all database resource metadata to Firestore\n")
 
 print("Starting to build and deploy demo microservice containers\n")
 
-success = build_helpers.deploy_containers(project_id, args.version)
-if not success:
-    sys.exit(1)
+#success = build_helpers.deploy_containers(project_id, args.version)
+#if not success:
+#    sys.exit(1)
 
 print("Finished building and deploying demo microservice containers\n")
 
@@ -158,8 +175,8 @@ print("Finished building and deploying demo microservice containers\n")
 
 print("Starting to deploy Cloud Run services. This will take a bit for each one\n")
 
-success = build_helpers.deploy_run_services(service_account, default_region, project_id, args.version)
-if not success:
-    sys.exit(1)
+#success = build_helpers.deploy_run_services(service_account, default_region, project_id, args.version)
+#if not success:
+#    sys.exit(1)
 
 print("Finished deploying Cloud Run services\n")

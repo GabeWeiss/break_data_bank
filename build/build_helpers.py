@@ -10,6 +10,7 @@ db = None
 def add_arguments(parser_obj):
     parser_obj.add_argument("-v", "--version", required=True,help="This is the version specified for the load-gen-script container. Should be in the format 'vx.x.x', e.g. v0.0.2")
     parser_obj.add_argument("-r", "--region", help="Specify a region to create your Cloud Run instances")
+    parser_obj.add_argument("-p", "--pubsub", help="Specifies a pub/sub topic, defaults to 'breaking-test'", default='breaking-test')
 
 def auth_gcloud():
     try:
@@ -109,6 +110,20 @@ def fetch_project_id():
 
     print("Something went wrong with authorization with gcloud. Please try again and be sure to authorize when it pops up in your browser.")
     return None
+
+def fetch_pubsub_topic(pubsub):
+    return pubsub
+
+def create_pubsub_topic(pubsub_topic):
+    proc = subprocess.run(["gcloud pubsub topics create {}".format(pubsub_topic)], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        err = proc.stderr
+        x = re.search("Resource already exists", err)
+        if not x:
+            print("There was a problem creating the Pub/Sub topic")
+            print(err)
+            return False
+    return True
 
 def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names):
     i = 0
