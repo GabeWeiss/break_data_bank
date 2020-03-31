@@ -1,26 +1,37 @@
 #!/usr/bin/env python
 
 import argparse
-import os
-import re
 import sys
 
 import build_helpers
 
 ### Block of default values
+
+# static vars
 default_pubsub = "breaking-test"
+
+# environment variable keys
+dataflow_gcs_bucket_envvar = "BREAKING_DATAFLOW_BUCKET"
+region_envvar = "BREAKING_REGION"
+project_envvar = "BREAKING_PROJECT"
+pubsub_envvar = "BREAKING_PUBSUB"
+
 ### End block
+
+print("\nStarting demo deployment...\n")
 
 # Argument handling before everything
 parser = argparse.ArgumentParser(description='This is a build script for the backend processes for the demo originally known as "Breaking the Data Bank". It shows off relative comparisons of load handling by Cloud SQL and Cloud Spanner.')
 build_helpers.add_arguments(parser, default_pubsub)
 args = parser.parse_args()
 
+print("Verifying prerequisite installations")
+
 # Run a couple checks to verify pre-requisites
 if not build_helpers.verify_prerequisites():
     sys.exit(1)
 
-print("\nStarting demo deployment...\n")
+print("Verified\n")
 
 print("In order to build this demo, we need to auth gcloud within the current script environment.\nIt will open a browser window to authenticate. Failing to authenticate will cancel the script. If you close the browser window, but not the browser, the script will hang and have to be killed either manually, or by closing the browser entirely.\n\n<Press return to continue>")
 
@@ -57,7 +68,7 @@ print("Fetching project metadata")
 
 # Need the project id of the current configuration for all
 # kinds of things
-project_id = build_helpers.fetch_project_id()
+project_id = build_helpers.fetch_project_id(project_envvar)
 if project_id == None:
     sys.exit(1)
 
@@ -66,7 +77,7 @@ print("Project id: '{}'\n".format(project_id))
 # NOTE: This script will attempt to use a set of defaults for the
 # region to set up the services. If they aren't set, it will fall
 # back (and notify user) to an environment variable.
-default_region = build_helpers.fetch_default_region(args.region)
+default_region = build_helpers.fetch_default_region(args.region, region_envvar)
 if default_region == None:
     sys.exit(1)
 
@@ -76,7 +87,7 @@ print("Region: '{}'\n".format(default_region))
 # This will need to change to become dynamic
 # I will TODO: make pubsub topic dynamic
 #pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub)
-pubsub_topic = default_pubsub
+pubsub_topic = build_helpers.fetch_pubsub_topic(default_pubsub, pubsub_envvar)
 if pubsub_topic == None:
     sys.exit(1)
 
@@ -109,10 +120,10 @@ print("Successfully created our service account\n")
 
 print("Creating Pub/Sub topic")
 
-if not build_helpers.create_pubsub_topic(pubsub_topic):
-    sys.exit(1)
+#if not build_helpers.create_pubsub_topic(pubsub_topic):
+#    sys.exit(1)
 
-print("Successfully created Pub/Sub topic")
+print("Successfully created Pub/Sub topic\n")
 
 ###############################
 ## Create Database instances ##
@@ -179,3 +190,16 @@ print("Starting to deploy Cloud Run services. This will take a bit for each one\
 #    sys.exit(1)
 
 print("Finished deploying Cloud Run services\n")
+
+#############################
+## Deploy the Dataflow job ##
+#############################
+
+print("Creating the Dataflow staging bucket")
+
+# First we need a temporary bucket in Cloud Storage for the job
+gcs_bucket = build_helpers.create_storage_bucket(project_id, default_region, dataflow_gcs_bucket_envvar)
+if gcs_bucket == None:
+    sys.exit(1)
+
+print("Successfully created the Dataflow staging bucket\n")

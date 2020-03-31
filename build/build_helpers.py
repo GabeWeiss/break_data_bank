@@ -1,6 +1,10 @@
+#!/usr/bin/env python
+
+import argparse
 import os
 import re
 import subprocess
+import time
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -17,8 +21,9 @@ def verify_prerequisites():
         subprocess.run(["docker --version"], shell=True, check=True, capture_output=True)
         subprocess.run(["kubectl version"], shell=True, check=True, capture_output=True)
         subprocess.run(["gcloud --version"], shell=True, check=True, capture_output=True)
+        subprocess.run(["gsutil --version"], shell=True, check=True, capture_output=True)
     except:
-        print("\n\nYou're missing one of the prerequisites to run this build script. You must have Docker, kubectl and gcloud installed.\n\n")
+        print("\n\nYou're missing one of the prerequisites to run this build script. You must have Docker, kubectl, gsutil and gcloud installed.\n\n")
         return False
     return True
 
@@ -92,36 +97,44 @@ def create_service_account(project_id):
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_path
     return full_name
 
-def fetch_default_region(arg_region):
+def fetch_default_region(arg_region, envvar):
         # If they specified a region, use that
     if arg_region != None:
+        os.environ[envvar] = arg_region
         return arg_region
 
         # Try to grab the default Cloud Run region
     default_region_process = subprocess.run(["gcloud config get-value run/region"], shell=True, capture_output=True, text=True)
     if default_region_process.stdout != "":
-        return default_region_process.stdout.rstrip()
+        region = default_region_process.stdout.rstrip()
+        os.environ[envvar] = region
+        return region
 
         # Next we'll go for a default Compute region
     default_region_process = subprocess.run(["gcloud config get-value compute/region"], shell=True, capture_output=True, text=True)
     if default_region_process.stdout != "":
-        return default_region_process.stdout.rstrip()
+        region = default_region_process.stdout.rstrip()
+        os.environ[envvar] = region
+        return region
 
         # Finally we'll go for an environment variable they can set if they don't want to use a default region
-    default_region = os.environ.get("DEMO_REGION")
+    default_region = os.environ.get(envvar)
     if default_region == None:
-        print("\nWasn't able to determine a region to start our Cloud Run services.\nPlease either set a region using 'gcloud config set run/region <region>'\nor set an environment variable 'DEMO_REGION' with the name of the region.\nEnsure that the region is a valid one. Regions can be found by running\n'gcloud compute regions list'.\n")
+        print("\nWasn't able to determine a region to start our Cloud Run services.\nPlease either set a region using 'gcloud config set run/region <region>'\nor set an environment variable '{}' with the name of the region.\nEnsure that the region is a valid one. Regions can be found by running\n'gcloud compute regions list'.\n".format(envvar))
     return default_region
 
-def fetch_project_id():
+def fetch_project_id(envvar):
     project_id_process = subprocess.run(["gcloud config get-value project"], shell=True, capture_output=True, text=True)
     if project_id_process.stdout != "":
-        return project_id_process.stdout.rstrip()
+        proj = project_id_process.stdout.rstrip()
+        os.environ[envvar] = proj
+        return proj
 
     print("Something went wrong with authorization with gcloud. Please try again and be sure to authorize when it pops up in your browser.")
     return None
 
-def fetch_pubsub_topic(pubsub):
+def fetch_pubsub_topic(pubsub, envvar):
+    os.environ[envvar] = pubsub
     return pubsub
 
 def create_pubsub_topic(pubsub_topic):
@@ -376,3 +389,15 @@ def deploy_run_services(service_account, region, project_id, version):
 
     print("")
     return True
+
+def create_storage_bucket(project, region, envvar):
+    bucket_name = "gs://breaking-tmp-{}/".format(int(round(time.time() * 1000)))
+    proc = subprocess.run(["gsutil mb -p {} -c STANDARD -l {} -b on {}".format(project, region, bucket_name)], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("There was a problem creating the Dataflow temporary staging bucket")
+        print (proc.stderr)
+        return None
+
+    # Need the os env var for the Dataflow job to read
+    os.environ[envvar] = bucket_name
+    return bucket_name
