@@ -5,8 +5,6 @@ import sys
 
 import build_helpers
 
-### Block of default values
-
 # static vars
 default_pubsub = "breaking-test"
 
@@ -16,7 +14,6 @@ region_envvar = "BREAKING_REGION"
 project_envvar = "BREAKING_PROJECT"
 pubsub_envvar = "BREAKING_PUBSUB"
 
-### End block
 
 print("\nStarting demo deployment...\n")
 
