@@ -12,6 +12,16 @@ def add_arguments(parser_obj, default_pubsub):
     parser_obj.add_argument("-r", "--region", help="Specify a region to create your Cloud Run instances")
     parser_obj.add_argument("-p", "--pubsub", help="Specifies a pub/sub topic, defaults to 'breaking-test'", default='{}'.format(default_pubsub))
 
+def verify_prerequisites():
+    try:
+        subprocess.run(["docker --version"], shell=True, check=True, capture_output=True)
+        subprocess.run(["kubectl version"], shell=True, check=True, capture_output=True)
+        subprocess.run(["gcloud --version"], shell=True, check=True, capture_output=True)
+    except:
+        print("\n\nYou're missing one of the prerequisites to run this build script. You must have Docker, kubectl and gcloud installed.\n\n")
+        return False
+    return True
+
 def auth_gcloud():
     try:
         subprocess.run(["gcloud auth login", "--brief"], shell=True, check=True, capture_output=True)

@@ -7,15 +7,18 @@ import sys
 
 import build_helpers
 
-parser = argparse.ArgumentParser(description='This is a build script for the backend processes for the demo originally known as "Breaking the Data Bank". It shows off relative comparisons of load handling by Cloud SQL and Cloud Spanner.')
-
 ### Block of default values
 default_pubsub = "breaking-test"
 ### End block
 
+# Argument handling before everything
+parser = argparse.ArgumentParser(description='This is a build script for the backend processes for the demo originally known as "Breaking the Data Bank". It shows off relative comparisons of load handling by Cloud SQL and Cloud Spanner.')
 build_helpers.add_arguments(parser, default_pubsub)
-
 args = parser.parse_args()
+
+# Run a couple checks to verify pre-requisites
+if not build_helpers.verify_prerequisites():
+    sys.exit(1)
 
 print("\nStarting demo deployment...\n")
 
@@ -29,8 +32,7 @@ n = input()
 
 print("Starting gcloud authentication")
 
-#success = build_helpers.auth_gcloud()
-#if not success:
+#if not build_helpers.auth_gcloud():
 #    sys.exit(1)
 
 print("Successfully authenticated gcloud\n")
@@ -42,8 +44,7 @@ print("Successfully authenticated gcloud\n")
 
 print("Since we're using Container Registry for our containers, we need to authorize gcloud with docker. Replying 'yes' will add docker credHelper entry to the configuration file to register gcloud, allowing us to push to Google Container Registry.\n")
 
-#success = build_helpers.auth_docker()
-#if not success:
+#if not build_helpers.auth_docker():
 #    sys.exit(1)
 
 print("\nDocker configured successfully\n")
@@ -89,8 +90,7 @@ print("Enabling GCP services/APIs")
 
 # There are a number of services that we need in order to build
 # this demo. This call enables the necessary services in your project
-#success = build_helpers.enable_services()
-#if not success:
+#if not build_helpers.enable_services():
 #    sys.exit(1)
 
 print("Successfully enabled all required services\n")
@@ -109,8 +109,7 @@ print("Successfully created our service account\n")
 
 print("Creating Pub/Sub topic")
 
-success = build_helpers.create_pubsub_topic(pubsub_topic)
-if not success:
+if not build_helpers.create_pubsub_topic(pubsub_topic):
     sys.exit(1)
 
 print("Successfully created Pub/Sub topic")
@@ -128,8 +127,7 @@ vm_ram = [ "1GiB", "4GiB", "16GiB" ]
 db_name_version = "06"
 instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
 
-success = build_helpers.create_sql_instances(default_region, vm_cpus, vm_ram, instance_names)
-if not success:
+if not build_helpers.create_sql_instances(default_region, vm_cpus, vm_ram, instance_names):
     sys.exit(1)
 
 print("Finished creating Cloud SQL instances\n")
@@ -152,12 +150,10 @@ print("Finished creating Cloud Spanner instances\n")
 
 print("Starting to add all database resource meta data to Firestore\n")
 
-#success = build_helpers.initialize_firestore()
-#if not success:
+#if not build_helpers.initialize_firestore():
 #    sys.exit(1)
 
-#success = build_helpers.set_sql_db_resources(instance_names)
-#if not success:
+#if not build_helpers.set_sql_db_resources(instance_names):
 #    sys.exit(1)
 
 print("Finished adding all database resource metadata to Firestore\n")
@@ -168,8 +164,7 @@ print("Finished adding all database resource metadata to Firestore\n")
 
 print("Starting to build and deploy demo microservice containers\n")
 
-#success = build_helpers.deploy_containers(project_id, args.version)
-#if not success:
+#if not build_helpers.deploy_containers(project_id, args.version):
 #    sys.exit(1)
 
 print("Finished building and deploying demo microservice containers\n")
@@ -180,8 +175,7 @@ print("Finished building and deploying demo microservice containers\n")
 
 print("Starting to deploy Cloud Run services. This will take a bit for each one\n")
 
-#success = build_helpers.deploy_run_services(service_account, default_region, project_id, args.version)
-#if not success:
+#if not build_helpers.deploy_run_services(service_account, default_region, project_id, args.version):
 #    sys.exit(1)
 
 print("Finished deploying Cloud Run services\n")
