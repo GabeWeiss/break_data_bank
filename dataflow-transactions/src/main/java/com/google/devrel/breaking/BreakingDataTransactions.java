@@ -57,19 +57,41 @@ import org.joda.time.Instant;
 public class BreakingDataTransactions {
 
     // When true, this pulls from the specified Pub/Sub topic
-  static Boolean REAL = true;
+  static Boolean REAL = false;
     // when set to true the job gets deployed to Cloud Dataflow
-  static Boolean DEPLOY = true;
+  static Boolean DEPLOY = false;
 
   public static void main(String[] args) {
+      // validate our env vars
+    if (GlobalVars.projectId   == null ||
+        GlobalVars.pubsubTopic == null ||
+        GlobalVars.gcsBucket   == null) {
+          System.out.println("You have to set environment variables for project (BREAKING_PROJECT), pubsub topic (BREAKING_PUBSUB) and Cloud Storage bucket for staging (BREAKING_DATAFLOW_BUCKET) in order to deploy this pipeline.");
+          return;
+        }
+
+      // Initialize our Firestore instance
+    try {
+    GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
+    FirebaseOptions firebaseOptions =
+        new FirebaseOptions.Builder()
+            .setCredentials(credentials)
+            .setProjectId(GlobalVars.projectId)
+            .build();
+    FirebaseApp firebaseApp = FirebaseApp.initializeApp(firebaseOptions);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+      // Start dataflow pipeline
     DataflowPipelineOptions options =
         PipelineOptionsFactory.create().as(DataflowPipelineOptions.class);
 
-    options.setProject("gweiss-simple-path");
+    options.setProject(GlobalVars.projectId);
 
     if (DEPLOY) {
         options.setRunner(DataflowRunner.class);
-        options.setTempLocation("gs://gweiss-breaking-test/tmp");
+        options.setTempLocation(GlobalVars.gcsBucket);
     }
 
     Pipeline p = Pipeline.create(options);
@@ -77,8 +99,7 @@ public class BreakingDataTransactions {
     PCollection<String> jsonStrings;
 
     if (REAL) {
-      String pubsubTopic = "projects/gweiss-simple-path/topics/breaking-test";
-      jsonStrings = p.apply(PubsubIO.readStrings().fromTopic(pubsubTopic));
+      jsonStrings = p.apply(PubsubIO.readStrings().fromTopic(GlobalVars.pubsubTopic));
     } else {
       Instant now = new Instant();
       jsonStrings =
@@ -341,6 +362,7 @@ public class BreakingDataTransactions {
                 });
 
     p.run();
+
   }
 
   public static class DataAnalysis extends CombineFn<Data, ResultAggregate, Result> {
@@ -421,35 +443,6 @@ public class BreakingDataTransactions {
   public static class FireStoreOutput extends DoFn<Result, String> {
 
     Firestore db;
-
-    @Setup
-    public void setup() {
-      GoogleCredentials credentials = null;
-      FirebaseApp firebaseApp = null;
-      try {
-        List<FirebaseApp> firebaseApps = FirebaseApp.getApps();
-        if(firebaseApps!=null && !firebaseApps.isEmpty()){
-            for(FirebaseApp app : firebaseApps){
-                if(app.getName().equals(FirebaseApp.DEFAULT_APP_NAME))
-                    firebaseApp = app;
-            }
-        }
-        else {
-            credentials = GoogleCredentials.getApplicationDefault();
-            FirebaseOptions options =
-                new FirebaseOptions.Builder()
-                    .setCredentials(credentials)
-                    .setProjectId("gweiss-simple-path")
-                    .build();
-
-            firebaseApp = FirebaseApp.initializeApp(options);
-        }
-
-        //db = FirestoreClient.getFirestore();
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
-    }
 
     @ProcessElement
     public void processElement(@Element Result result) {
