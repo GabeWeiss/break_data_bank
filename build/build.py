@@ -9,7 +9,11 @@ import build_helpers
 
 parser = argparse.ArgumentParser(description='This is a build script for the backend processes for the demo originally known as "Breaking the Data Bank". It shows off relative comparisons of load handling by Cloud SQL and Cloud Spanner.')
 
-build_helpers.add_arguments(parser)
+### Block of default values
+default_pubsub = "breaking-test"
+### End block
+
+build_helpers.add_arguments(parser, default_pubsub)
 
 args = parser.parse_args()
 
@@ -67,10 +71,11 @@ if default_region == None:
 
 print("Region: '{}'\n".format(default_region))
 
-# Currently only allowing this to be overridden by flag, but setting
-# it up to be a method so we could override by other methods later 
-# potentially
-pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub)
+# Currently hardcoding to our default. There are a number of places
+# This will need to change to become dynamic
+# I will TODO: make pubsub topic dynamic
+#pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub)
+pubsub_topic = default_pubsub
 if pubsub_topic == None:
     sys.exit(1)
 

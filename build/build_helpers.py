@@ -7,10 +7,10 @@ from firebase_admin import credentials, firestore
 
 db = None
 
-def add_arguments(parser_obj):
+def add_arguments(parser_obj, default_pubsub):
     parser_obj.add_argument("-v", "--version", required=True,help="This is the version specified for the load-gen-script container. Should be in the format 'vx.x.x', e.g. v0.0.2")
     parser_obj.add_argument("-r", "--region", help="Specify a region to create your Cloud Run instances")
-    parser_obj.add_argument("-p", "--pubsub", help="Specifies a pub/sub topic, defaults to 'breaking-test'", default='breaking-test')
+    parser_obj.add_argument("-p", "--pubsub", help="Specifies a pub/sub topic, defaults to 'breaking-test'", default='{}'.format(default_pubsub))
 
 def auth_gcloud():
     try:
@@ -278,6 +278,7 @@ def replace_version_string(version):
         with open(filename, 'r') as file:
             filedata = file.read()
 
+        # Replace our version string in the config file
         filedata = re.sub(':v[0-9]+\.[0-9]+\.[0-9]+', ':{}'.format(version), filedata)
 
         with open(filename, 'w') as file:
