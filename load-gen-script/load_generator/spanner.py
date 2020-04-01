@@ -21,13 +21,18 @@ import random
 import time
 from typing import Awaitable, Tuple
 
-from google.cloud import spanner
+from google.cloud import spanner, spanner_admin_database_v1
 
 from .utils import Timer, OperationResults
 
 logger = logging.getLogger(__name__)
 
-READ_STATEMENTS = ["SELECT 1"]
+READ_STATEMENTS = [
+    "SELECT 1",
+]
+WRITE_STATEMENTS = [
+    "INSERT into test_table (column1, column2, column3) VALUES ('test','test','test')"
+]
 
 
 def run_function_as_async(func):
@@ -46,9 +51,12 @@ def get_database_client(instance: str, database: str):
 
 
 @run_function_as_async
-def execute_statement(db_client: spanner.Database, statement: str, timeout: float):
+def execute_statement(db_client: spanner_admin_database_v1.types.Database, statement: str, timeout: float):
     with db_client.snapshot() as snapshot:
-        results = snapshot.execute_sql(statement, timeout=timeout)
+        results = []
+        rows = snapshot.execute_sql(statement, timeout=timeout)
+        for row in rows:
+            results.append(row)
         return results
 
 
@@ -57,13 +65,17 @@ async def generate_transaction_args(instance: str, database: str) -> Tuple:
     return (client,)
 
 
-def read_operation(db_client: spanner.Database) -> Awaitable[OperationResults]:
+def read_operation(db_client: spanner_admin_database_v1.types.Database) -> Awaitable[OperationResults]:
     stmt = random.choice(READ_STATEMENTS)
     return perform_operation(db_client, "read", stmt)
 
 
+def write_operation(db_client: spanner_admin_database_v1.types.Database) -> Awaitable[OperationResults]:
+    stmt = random.choice(WRITE_STATEMENTS)
+    return perform_operation(db_client, "write", stmt)
+
 async def perform_operation(
-    db_client: spanner.Database, operation: str, statement: str, timeout: float = 5
+    db_client: spanner_admin_database_v1.types.Database, operation: str, statement: str, timeout: float = 5
 ) -> OperationResults:
     """Performs a simple transaction with the provided pool. """
     success, trans_timer = (
@@ -75,7 +87,7 @@ async def perform_operation(
     try:
         with trans_timer:  # Start transaction timer
             time_left = deadline - trans_timer.start
-            await execute_statement(db_client, statement, time_left)
+            results = await execute_statement(db_client, statement, time_left)
     except Exception as ex:
         success = False
         logger.warning("Transaction failed with exception: %s", ex)

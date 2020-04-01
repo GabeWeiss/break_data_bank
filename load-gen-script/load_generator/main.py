@@ -20,7 +20,7 @@ import time
 from typing import Awaitable, Callable, List
 import uuid
 import configargparse
-from . import cloud_sql
+from . import cloud_sql, spanner
 from .pubsub import PublishQueue
 from .utils import AsyncOperation
 
@@ -29,13 +29,13 @@ logger = logging.getLogger(__name__)
 
 # These values copied from orchestrator code. Any changes need to be
 # in both places. Todo: Move these to better place for both files
-TRAFFIC_LOW    = 1
-TRAFFIC_HIGH   = 2
+TRAFFIC_LOW = 1
+TRAFFIC_HIGH = 2
 TRAFFIC_SPIKEY = 3
 
-CLOUD_SQL         = 1
+CLOUD_SQL = 1
 CLOUD_SQL_REPLICA = 2
-CLOUD_SPANNER     = 3
+CLOUD_SPANNER = 3
 
 
 async def schedule_at(start_time: float, func: Callable[[], Awaitable]):
@@ -84,7 +84,7 @@ async def generate_load(args: configargparse.Namespace):
 
     # TODO(kvg): configurable load parameters
     load = [
-        (10, 250),  # 3s @ 30 qps
+        (3, 30),  # 3s @ 30 qps
     ]
 
     # Set the read / write transactions to use
@@ -93,10 +93,12 @@ async def generate_load(args: configargparse.Namespace):
         op_args = await cloud_sql.generate_transaction_args(
             args.host, args.port, args.database, args.user, args.password
         )
-
         read = functools.partial(cloud_sql.read_operation, *op_args)
+    elif args.target_type == CLOUD_SPANNER:
+        op_args = await spanner.generate_transaction_args(args.instance, args.database)
+        read = functools.partial(spanner.read_operation, *op_args)
+        write = functools.partial(spanner.write_operation, *op_args)
 
-        # TODO(kvg) write transaction
 
     # Use pubsub to publish the results of each operation
     pub_queue = PublishQueue(args.pubsub_project, args.pubsub_topic)
@@ -136,7 +138,12 @@ def main():
 
     parser.add_argument("-w", "--workload-id", help="uuid for the workload")
 
-    parser.add_argument("--target-type", required=True, type=int, choices=[CLOUD_SQL, CLOUD_SQL_REPLICA, CLOUD_SPANNER])
+    parser.add_argument(
+        "--target-type",
+        required=True,
+        type=int,
+        choices=[CLOUD_SQL, CLOUD_SQL_REPLICA, CLOUD_SPANNER],
+    )
     parser.add_argument("--pubsub_project", required=True, help="pubsub project id")
     parser.add_argument("--pubsub_topic", required=True, help="pubsub topic id")
 
@@ -175,7 +182,7 @@ def main():
                 parser.exit(1, f"--{flag} is required for cloud-sql targets\n")
 
     # Validate Spanner flags
-    if args.target_type == SPANNER:
+    if args.target_type == CLOUD_SPANNER:
         for flag in ["database", "instance"]:
             if getattr(args, flag) is None:
                 parser.exit(1, f"--{flag} is required for spanner targets\n")
