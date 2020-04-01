@@ -103,6 +103,25 @@ def create_service_account(project_id):
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_path
     return full_name
 
+    # We need a separate VPC because of allocating IP addresses for GKE
+    # Since our load gen is going to consume a lot of IPs, we need to
+    # allocate a broad range. Rather than risk running out of IPs, which
+    # results in failing to create the GKE cluster, we'll just isolate
+    # in our own VPC
+def create_vpc():
+    vpc_name = "breaking-vpc"
+    proc = subprocess.run(["gcloud compute networks create {}".format(vpc_name)], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        err = proc.stderr
+        x = re.search("already exists", err)
+        if not x:
+            print("There was a problem creating our internal network")
+            print(proc.stderr)
+            return None
+        else:
+            print("WARNING: The VPC was already created. Beware the GKE cluster may fail to create later\n")
+    return vpc_name
+
 def fetch_default_region(arg_region, envvar):
         # If they specified a region, use that
     if arg_region != None:
@@ -158,7 +177,7 @@ def create_pubsub_topic(pubsub_topic):
             return False
     return True
 
-def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names):
+def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names, vpc):
     i = 0
     for name in instance_names:
         cpu = vm_cpus[i]
@@ -169,9 +188,9 @@ def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names):
         # a micro instance (.6 GiB RAM and 1 vCPU) as our first instace
         db_create_process = None
         if cpu == "1":
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network=default".format(name, default_region, "db-f1-micro")], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network={}".format(name, default_region, "db-f1-micro", vpc)], shell=True, capture_output=True, text=True)
         else:
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network=default".format(name, default_region, cpu, ram)], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network={}".format(name, default_region, cpu, ram, vpc)], shell=True, capture_output=True, text=True)
 
         if db_create_process.returncode != 0:
             err = db_create_process.stderr
@@ -399,6 +418,19 @@ def deploy_run_services(service_account, region, project_id, version):
 
     print("")
     return True
+
+def deploy_k8s(region, project, vpc):
+    k8s_name = "breaking-cluster"
+
+    proc = subprocess.run(["gcloud container clusters create {} --num-nodes=5 --region={} --enable-ip-alias --max-pods-per-node=110 --services-ipv4-cidr=10.0.0.0/20 --workload-pool={}.svc.id.goog --network={}".format(k8s_name, region, project, vpc)], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        err = proc.stderr
+        x = re.search("already exists", err)
+        if not x:
+            print("There was a problem creating the Kubernetes cluster")
+            print(err)
+            return None
+    return k8s_name
 
 def create_storage_bucket(project, region, envvar):
     bucket_name = "gs://breaking-tmp-{}/".format(int(round(time.time() * 1000)))
