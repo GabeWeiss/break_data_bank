@@ -103,6 +103,7 @@ async def generate_load(args: configargparse.Namespace):
     # Use pubsub to publish the results of each operation
     pub_queue = PublishQueue(args.pubsub_project, args.pubsub_topic)
     read = publish_results_from(pub_queue, args.workload_id, job_id, read)
+    write = publish_results_from(pub_queue, args.workload_id, job_id, write)
 
     # Convert from "off-the-wall" time to monotonic for consistency when timing
     delay = args.delay_until - time.monotonic()
@@ -113,7 +114,7 @@ async def generate_load(args: configargparse.Namespace):
     transactions = []
     for seg in load:
         # Schedule connections that occur in the segment
-        segment_load = schedule_segment(cur_time, seg[0], seg[1], read)
+        segment_load = schedule_segment(cur_time, seg[0], seg[1], write)
         # Add the segment load to our list of scheduled connections
         transactions.extend(segment_load)
         cur_time += seg[0]
