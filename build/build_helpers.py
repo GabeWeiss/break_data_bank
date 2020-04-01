@@ -11,19 +11,25 @@ from firebase_admin import credentials, firestore
 
 db = None
 
-def add_arguments(parser_obj, default_pubsub):
+def add_arguments(parser_obj):
     parser_obj.add_argument("-v", "--version", required=True,help="This is the version specified for the load-gen-script container. Should be in the format 'vx.x.x', e.g. v0.0.2")
     parser_obj.add_argument("-r", "--region", help="Specify a region to create your Cloud Run instances")
-    parser_obj.add_argument("-p", "--pubsub", help="Specifies a pub/sub topic, defaults to 'breaking-test'", default='{}'.format(default_pubsub))
+    parser_obj.add_argument("-p", "--pubsub", help="Specifies a pub/sub topic, defaults to 'breaking-test'", default="breaking-demo-topic")
 
 def verify_prerequisites():
     try:
         subprocess.run(["docker --version"], shell=True, check=True, capture_output=True)
         subprocess.run(["kubectl version"], shell=True, check=True, capture_output=True)
+        subprocess.run(["mvn --version"], shell=True, check=True, capture_output=True)
         subprocess.run(["gcloud --version"], shell=True, check=True, capture_output=True)
         subprocess.run(["gsutil --version"], shell=True, check=True, capture_output=True)
     except:
-        print("\n\nYou're missing one of the prerequisites to run this build script. You must have Docker, kubectl, gsutil and gcloud installed.\n\n")
+        print("\n\nYou're missing one of the prerequisites to run this build script. You must have Docker, kubectl, Maven, gsutil and gcloud installed.\n\n")
+        return False
+
+    # They need the JDK in order to do the Dataflow piece
+    if os.environ.get('JAVA_HOME') == None:
+        print("Looks like you haven't installed the Java Development Kit. You need it to be able to build and deploy the Dataflow piece to this demo. Go here to install it:\n http://www.oracle.com/technetwork/java/javase/downloads/index.html\nDon't forget to also set the JAVA_HOME variable to point to the install directory.\n\n")
         return False
     return True
 
@@ -133,9 +139,13 @@ def fetch_project_id(envvar):
     print("Something went wrong with authorization with gcloud. Please try again and be sure to authorize when it pops up in your browser.")
     return None
 
+# There's a default value set in argparse, so this SHOULDN'T ever
+# have a None value passed in, but just in case, put in the test
 def fetch_pubsub_topic(pubsub, envvar):
-    os.environ[envvar] = pubsub
-    return pubsub
+    if pubsub != None:
+        os.environ[envvar] = pubsub
+        return pubsub
+    return None
 
 def create_pubsub_topic(pubsub_topic):
     proc = subprocess.run(["gcloud pubsub topics create {}".format(pubsub_topic)], shell=True, capture_output=True, text=True)
@@ -401,3 +411,36 @@ def create_storage_bucket(project, region, envvar):
     # Need the os env var for the Dataflow job to read
     os.environ[envvar] = bucket_name
     return bucket_name
+
+def deploy_dataflow():
+    build_proc = subprocess.run(['mvn -e compile exec:java -Dexec.mainClass=com.google.devrel.breaking.BreakingDataTransactions -Dexec.args="--runner=DataflowRunner" 2>&1'], shell=True, capture_output=True, text=True, cwd='../dataflow-transactions')
+    if build_proc.returncode != 0:
+        print("There was a problem deploying the Dataflow pipeline")
+        print(build_proc.stdout)
+        return False
+
+    # It doesn't show up instantly in the list, so delay some to let
+    # it show up
+    time.sleep(30)
+
+    # Unfortunately, we can't rely on that return code to actually
+    # reflect the PIPELINE'S state, only the Maven build state. So to
+    # see if we REALLY deployed, we need to fetch the Dataflow jobs
+    # and see if ours is there
+
+    # Another caveat, is I'm not sure Beam supports the setRegion()
+    # method, and if it does not, then all jobs will happen in
+    # us-central1. For NOW, I'm going to assume it's safe to create a
+    # unique-ish job called 'breakingdatatransactions-*' and filter on
+    # that for confirmation that it's working. Later, once I confirm
+    # setRegion working/not working, I can filter down further by region
+    dataflow_jobname = "breakingdatatransactions"
+    proc = subprocess.run(['gcloud dataflow jobs list | grep "Running\|Not Started" | grep {}'.format(dataflow_jobname)], shell=True, capture_output=True, text=True)
+    # Interesting side-effect(?), when gcloud * list doesn't return any
+    # results, it exits with an error code. So no need to check the results
+    # of the list at all, only need the return code
+    if proc.returncode != 0:
+        print("Something went wrong deploying the Dataflow job")
+        print(build_proc.stderr)
+        return False
+    return True
