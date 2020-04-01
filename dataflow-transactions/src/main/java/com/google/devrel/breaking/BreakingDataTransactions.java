@@ -57,9 +57,9 @@ import org.joda.time.Instant;
 public class BreakingDataTransactions {
 
     // When true, this pulls from the specified Pub/Sub topic
-  static Boolean REAL = false;
+  static Boolean REAL = true;
     // when set to true the job gets deployed to Cloud Dataflow
-  static Boolean DEPLOY = false;
+  static Boolean DEPLOY = true;
 
   public static void main(String[] args) {
       // validate our env vars
@@ -67,7 +67,7 @@ public class BreakingDataTransactions {
         GlobalVars.pubsubTopic == null ||
         GlobalVars.gcsBucket   == null) {
           System.out.println("You have to set environment variables for project (BREAKING_PROJECT), pubsub topic (BREAKING_PUBSUB) and Cloud Storage bucket for staging (BREAKING_DATAFLOW_BUCKET) in order to deploy this pipeline.");
-          return;
+          System.exit(1);
         }
 
       // Initialize our Firestore instance
@@ -92,6 +92,7 @@ public class BreakingDataTransactions {
     if (DEPLOY) {
         options.setRunner(DataflowRunner.class);
         options.setTempLocation(GlobalVars.gcsBucket);
+        //options.setRegion(GlobalVars.region);
     }
 
     Pipeline p = Pipeline.create(options);
