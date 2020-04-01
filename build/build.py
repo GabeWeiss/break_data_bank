@@ -206,11 +206,20 @@ print("Finished deploying Cloud Run services\n")
 
 print("Deploying the Kubernetes cluster (another potentially lengthy wait)\n")
 
-k8s_name = build_helpers.deploy_k8s(default_region, project_id, vpc_name)
+k8s_name, k8s_ip = build_helpers.deploy_k8s(default_region, project_id, vpc_name)
 if k8s_name == None:
+    sys.exit(1)
+if k8s_ip == None:
     sys.exit(1)
 
 print("Successfully deployed GKE cluster\n")
+
+print("Verifying kubectl configuration")
+
+if not build_helpers.verify_kubectl(k8s_ip):
+    sys.exit(1)
+
+print("Verified\n")
 
 
 #############################

@@ -425,12 +425,29 @@ def deploy_k8s(region, project, vpc):
     proc = subprocess.run(["gcloud container clusters create {} --num-nodes=5 --region={} --enable-ip-alias --max-pods-per-node=110 --services-ipv4-cidr=10.0.0.0/20 --workload-pool={}.svc.id.goog --network={}".format(k8s_name, region, project, vpc)], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         err = proc.stderr
-        x = re.search("already exists", err)
+        x = re.search("lready exists", err)
         if not x:
             print("There was a problem creating the Kubernetes cluster")
             print(err)
             return None
-    return k8s_name
+
+
+    ip_proc = subprocess.run(["gcloud container clusters list | grep {}".format(k8s_name)], shell=True, capture_output=True, text=True)
+    if ip_proc.returncode != 0:
+        return None, None
+    try:
+        ip = ip_proc.stdout.split()[3]
+    except:
+        return None, None
+    return k8s_name, ip
+
+def verify_kubectl(ip):
+    try:
+        proc = subprocess.run(["kubectl cluster-info | grep {}".format(ip)], shell=True, capture_output=True, text=True, check=True)
+    except:
+        print("kubectl doesn't appear to be configured properly. Please configure kubectl to point at the new created cluster here: '{}' and re-run the build script".format(ip))
+        return False
+    return True
 
 def create_storage_bucket(project, region, envvar):
     bucket_name = "gs://breaking-tmp-{}/".format(int(round(time.time() * 1000)))
