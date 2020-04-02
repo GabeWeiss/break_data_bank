@@ -13,5 +13,6 @@ __pycache__/
 
 # configs / service accounts
 load-gen-script/config.yaml
+load-gen-script/service-account.yaml
 load-gen-service/config.yaml
 *.json
