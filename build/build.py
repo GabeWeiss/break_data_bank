@@ -25,7 +25,7 @@ print("Verifying prerequisite installations")
 #if not build_helpers.verify_prerequisites():
 #    sys.exit(1)
 
-print("Verified\n")
+print("  Verified\n")
 
 print("In order to build this demo, we need to auth gcloud within the current script environment.\nIt will open a browser window to authenticate. Failing to authenticate will cancel the script. If you close the browser window, but not the browser, the script will hang and have to be killed either manually, or by closing the browser entirely.\n\n<Press return to continue>")
 
@@ -40,7 +40,7 @@ print("Starting gcloud authentication")
 #if not build_helpers.auth_gcloud():
 #    sys.exit(1)
 
-print("Successfully authenticated gcloud\n")
+print("  Successfully authenticated gcloud\n")
 
 
 ##################################
@@ -52,7 +52,7 @@ print("Since we're using Container Registry for our containers, we need to autho
 #if not build_helpers.auth_docker():
 #    sys.exit(1)
 
-print("\nDocker configured successfully\n")
+print("  Docker configured successfully\n")
 
 ###########################################
 ## Fetch some project metadata for later ##
@@ -66,7 +66,7 @@ project_id = build_helpers.fetch_project_id(project_envvar)
 if project_id == None:
     sys.exit(1)
 
-print("Project id: '{}'".format(project_id))
+print(" Project id: '{}'".format(project_id))
 
 # NOTE: This script will attempt to use a set of defaults for the
 # region to set up the services. If they aren't set, it will fall
@@ -75,15 +75,15 @@ default_region = build_helpers.fetch_default_region(args.region, region_envvar)
 if default_region == None:
     sys.exit(1)
 
-print("Region: '{}'".format(default_region))
+print(" Region: '{}'".format(default_region))
 
 pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub, pubsub_envvar)
 if pubsub_topic == None:
     sys.exit(1)
 
-print("Pub/Sub topic: '{}'".format(pubsub_topic))
+print(" Pub/Sub topic: '{}'\n".format(pubsub_topic))
 
-print("\nFinished fetching project metadata\n")
+print("  Finished fetching project metadata\n")
 
 ######################################################
 ## Setup for API use (services and service account) ##
@@ -96,7 +96,7 @@ print("Enabling GCP services/APIs")
 #if not build_helpers.enable_services():
 #    sys.exit(1)
 
-print("Successfully enabled all required services\n")
+print("  Successfully enabled all required services\n")
 
 print("Creating and fetching service account (Note, you'll get an email about downloading a service key if you haven't downloaded it yet)")
 
@@ -104,19 +104,19 @@ print("Creating and fetching service account (Note, you'll get an email about do
 #if service_account == None:
 #    sys.exit(1)
 
-print("Successfully created our service account\n")
+print("  Successfully created our service account\n")
 
 #################################
 ## Create a VPC for everything ##
 #################################
 
-print("Creating new VPC network\n")
+print("Creating new VPC network")
 
 #vpc_name = build_helpers.create_vpc()
 #if vpc_name == None:
 #    sys.exit(1)
 
-print("Successfully created VPC\n")
+print("  Successfully created VPC\n")
 
 ##########################
 ## Create Pub/Sub topic ##
@@ -127,7 +127,7 @@ print("Creating Pub/Sub topic")
 #if not build_helpers.create_pubsub_topic(pubsub_topic):
 #    sys.exit(1)
 
-print("Successfully created Pub/Sub topic\n")
+print("  Successfully created Pub/Sub topic\n")
 
 ###############################
 ## Create Database instances ##
@@ -145,19 +145,19 @@ instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_
 #if not build_helpers.create_sql_instances(default_region, vm_cpus, vm_ram, instance_names):
 #    sys.exit(1)
 
-print("Finished creating Cloud SQL instances\n")
+print("  Finished creating Cloud SQL instances\n")
 
 print("Starting to create Cloud SQL w/ replica instances (another big wait incoming\n")
 
 # TODO: Create Cloud SQL w/ replica instances
 
-print ("Finished creating Cloud SQL w/ replica instances\n")
+print ("  Finished creating Cloud SQL w/ replica instances\n")
 
 print("Starting to create Cloud Spanner instances\n")
 
 # TODO: Create Cloud Spanner instances
 
-print("Finished creating Cloud Spanner instances\n")
+print("  Finished creating Cloud Spanner instances\n")
 
 #######################################
 ## Insert DB metadata into Firestore ##
@@ -171,7 +171,7 @@ print("Starting to add all database resource meta data to Firestore\n")
 #if not build_helpers.set_sql_db_resources(instance_names):
 #    sys.exit(1)
 
-print("Finished adding all database resource metadata to Firestore\n")
+print("  Finished adding all database resource metadata to Firestore\n")
 
 #################################
 ## Build and deploy containers ##
@@ -182,7 +182,7 @@ print("Starting to build and deploy demo microservice containers\n")
 #if not build_helpers.deploy_containers(project_id, args.version):
 #    sys.exit(1)
 
-print("Finished building and deploying demo microservice containers\n")
+print("  Finished building and deploying demo microservice containers\n")
 
 ################################
 ## Deploly Cloud Run services ##
@@ -198,13 +198,13 @@ print("Starting to deploy Cloud Run services. This will take a bit for each one\
 # on running (curl to keep it simple, until we have the front-end also
 # to deploy automatically)
 
-print("Finished deploying Cloud Run services\n")
+print("  Finished deploying Cloud Run services\n")
 
 ###################################
 ## Deploy the Kubernetes Cluster ##
 ###################################
 
-print("Deploying the Kubernetes cluster (another potentially lengthy wait)\n")
+print("Deploying the Kubernetes cluster (another potentially lengthy wait)")
 
 #k8s_name, k8s_ip = build_helpers.deploy_k8s(default_region, project_id, vpc_name)
 #if k8s_name == None:
@@ -212,40 +212,40 @@ print("Deploying the Kubernetes cluster (another potentially lengthy wait)\n")
 #if k8s_ip == None:
 #    sys.exit(1)
 
-print("Successfully deployed GKE cluster\n")
+print("  Successfully deployed GKE cluster\n")
 
 print("Verifying kubectl configuration")
 
 #if not build_helpers.verify_kubectl(k8s_ip):
 #    sys.exit(1)
 
-print("Verified\n")
+print("  Verified\n")
 
 print("Setting up service account credentials linkages for GKE's workload identity\n")
 
-print("Generating k8s service account configuration")
+print(" Generating k8s service account configuration")
 
 #k8s_service_account = build_helpers.adjust_k8s_service_account_yaml(service_account)
 #if k8s_service_account == None:
 #    sys.exit(1)
 
-print("Generated config file")
+print("   Generated config file")
 
-print("Reading in service account")
+print(" Reading in service account")
 
 #if not build_helpers.read_k8s_service_account_yaml():
 #    sys.exit(1)
 
-print("Read")
+print("   Read")
 
-print("Binding service account")
+print(" Binding service account")
 
 #if not build_helpers.bind_k8s_service_accounts(project_id, k8s_service_account, service_account):
 #    sys.exit(1)
 
-print("Bound\n")
+print("   Bound\n")
 
-print("Finished up service account credentials linkage for GKE's workload identity\n")
+print("  Finished up service account credentials linkage for GKE's workload identity\n")
 
 #############################
 ## Deploy the Dataflow job ##
@@ -258,14 +258,14 @@ print("Creating the Dataflow staging bucket")
 #if gcs_bucket == None:
 #    sys.exit(1)
 
-print("Successfully created the Dataflow staging bucket\n")
+print("  Successfully created the Dataflow staging bucket\n")
 
-print("Deploying Dataflow pipeline to Cloud (This is another longer wait)\n")
+print("Deploying Dataflow pipeline to Cloud (This is another longer wait)")
 
 #if not build_helpers.deploy_dataflow():
 #    sys.exit(1)
 
-print("Successfully deployed Dataflow pipeline")
+print("  Successfully deployed Dataflow pipeline")
 
 
 print("\n")

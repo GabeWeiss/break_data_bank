@@ -204,7 +204,7 @@ def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names, vpc):
                 print (err)
                 return False
 
-        print("Instance '{}' created with '{}' CPU(s) and '{}' RAM.".format(name, cpu, ram))
+        print(" Instance '{}' created with '{}' CPU(s) and '{}' RAM.".format(name, cpu, ram))
         i = i + 1
 
     print("")
