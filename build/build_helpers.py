@@ -449,23 +449,59 @@ def verify_kubectl(ip):
         return False
     return True
 
-def adjust_service_account_yaml(service_account):
+def adjust_k8s_service_account_yaml(service_account):
     filename = '../load-gen-script/service-account.yaml'
+    k8s_account = "breaking-k8s-service-account"
     filedata = None
     try:
         with open("{}.example".format(filename), 'r') as file:
             filedata = file.read()
     except:
         print("Couldn't read the service account yaml example file\n")
-        return False
+        return None
 
     filedata = filedata.replace("<GCPServiceAccountFullName>", service_account)
+    filedata = filedata.replace("<K8SServiceAccount>", k8s_account)
 
     try:
         with open(filename, 'w') as file:
             file.write(filedata)
     except:
         print("Couldn't write out the service account yaml file\n")
+        return None
+
+    return k8s_account
+
+def read_k8s_service_account_yaml():
+    proc = subprocess.run(["kubectl apply -f service-account.yaml"], shell=True, capture_output=True, text=True, cwd='../load-gen-script')
+    if proc.returncode != 0:
+        err = proc.stderr
+        x = re.search("unchanged", err)
+        if not x:
+            print("There was a problem reading in the service account file")
+            print(proc.stderr)
+            return False
+    return True
+
+def bind_k8s_service_accounts(project, k8s_sa, gcp_sa):
+    cmd = 'gcloud iam service-accounts add-iam-policy-binding --role roles/iam.workloadIdentityUser --member \"serviceAccount:{}.svc.id.goog[default/{}]\" {}'.format(project, k8s_sa, gcp_sa)
+    proc = subprocess.run([cmd], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("Wasn't able to bind your GCP service account to the k8s service account")
+        print(proc.stderr)
+        return False
+
+    # Verify that the account got bound correctly
+    verify = subprocess.run(["gcloud iam service-accounts get-iam-policy {}".format(gcp_sa)], shell=True, capture_output=True, text=True)
+    if verify.returncode != 0:
+        print("There was a problem verifying the iam policy binding")
+        print(verify.stderr)
+        return False
+
+    out = verify.stdout
+    x = re.search("serviceAccount\:{}\.svc\.id\.goog\[default/{}\]".format(project, k8s_sa), out)
+    if not x:
+        print("Couldn't verify the iam policy binding")
         return False
 
     return True

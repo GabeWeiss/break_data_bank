@@ -221,12 +221,33 @@ print("Verifying kubectl configuration")
 
 print("Verified\n")
 
-print("Generating service account file for linking workload identity to GCP service account")
+print("Setting up service account credentials linkages for GKE's workload identity\n")
 
-if not build_helpers.adjust_service_account_yaml(service_account):
+print("Generating k8s service account configuration")
+
+k8s_service_account = build_helpers.adjust_k8s_service_account_yaml(service_account)
+if k8s_service_account == None:
     sys.exit(1)
 
-print("Created service account file\n")
+print (k8s_service_account)
+
+print("Generated config file")
+
+print("Reading in service account")
+
+if not build_helpers.read_k8s_service_account_yaml():
+    sys.exit(1)
+
+print("Read")
+
+print("Binding service account")
+
+if not build_helpers.bind_k8s_service_accounts(project_id, k8s_service_account, service_account):
+    sys.exit(1)
+
+print("Bound\n")
+
+print("Finished up service account credentials linkage for GKE's workload identity\n")
 
 #############################
 ## Deploy the Dataflow job ##
@@ -247,3 +268,6 @@ print("Deploying Dataflow pipeline to Cloud (This is another longer wait)\n")
 #    sys.exit(1)
 
 print("Successfully deployed Dataflow pipeline")
+
+
+print("\n")
