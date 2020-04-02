@@ -422,7 +422,7 @@ def deploy_run_services(service_account, region, project_id, version):
 def deploy_k8s(region, project, vpc):
     k8s_name = "breaking-cluster"
 
-    proc = subprocess.run(["gcloud container clusters create {} --num-nodes=5 --region={} --enable-ip-alias --max-pods-per-node=110 --services-ipv4-cidr=10.0.0.0/20 --workload-pool={}.svc.id.goog --network={}".format(k8s_name, region, project, vpc)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run(["gcloud container clusters create {} --num-nodes=5 --region={} --enable-ip-alias --workload-pool={}.svc.id.goog --network={}".format(k8s_name, region, project, vpc)], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         err = proc.stderr
         x = re.search("lready exists", err)
