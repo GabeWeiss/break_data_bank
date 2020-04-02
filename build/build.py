@@ -100,9 +100,9 @@ print("  Successfully enabled all required services\n")
 
 print("Creating and fetching service account (Note, you'll get an email about downloading a service key if you haven't downloaded it yet)")
 
-#service_account = build_helpers.create_service_account(project_id)
-#if service_account == None:
-#    sys.exit(1)
+service_account = build_helpers.create_service_account(project_id)
+if service_account == None:
+    sys.exit(1)
 
 print("  Successfully created our service account\n")
 
@@ -177,6 +177,18 @@ print("  Finished adding all database resource metadata to Firestore\n")
 ## Build and deploy containers ##
 #################################
 
+# We need to create our k8s service account yaml first, because
+# we need the service account name in our container's yaml configuration
+# This call ONLY creates the yaml file, it doesn't do anything with it
+# until after the containers are deployed
+print(" Generating k8s service account configuration")
+
+k8s_service_account = build_helpers.adjust_k8s_service_account_yaml(service_account)
+if k8s_service_account == None:
+    sys.exit(1)
+
+print("   Generated config file")
+
 print("Starting to build and deploy demo microservice containers\n")
 
 #if not build_helpers.deploy_containers(project_id, args.version):
@@ -187,6 +199,13 @@ print("  Finished building and deploying demo microservice containers\n")
 ################################
 ## Deploly Cloud Run services ##
 ################################
+
+print("Creating the config yaml file for the load gen service")
+
+if not build_helpers.adjust_config_yaml(project_id, pubsub_topic, args.version, k8s_service_account):
+    sys.exit(1)
+
+print("  Created\n")
 
 print("Starting to deploy Cloud Run services. This will take a bit for each one\n")
 
@@ -223,15 +242,7 @@ print("  Verified\n")
 
 print("Setting up service account credentials linkages for GKE's workload identity\n")
 
-print(" Generating k8s service account configuration")
-
-#k8s_service_account = build_helpers.adjust_k8s_service_account_yaml(service_account)
-#if k8s_service_account == None:
-#    sys.exit(1)
-
-print("   Generated config file")
-
-print(" Reading in service account")
+print(" Reading in k8s service account")
 
 #if not build_helpers.read_k8s_service_account_yaml():
 #    sys.exit(1)

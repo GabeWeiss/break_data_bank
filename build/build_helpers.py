@@ -339,12 +339,33 @@ def replace_version_string(version):
         return False
     return True
 
-def deploy_load_gen_service_container(project_id, version):
-    success = replace_version_string(version)
-    if not success:
-        print("Wasn't able to replace the version string in the configuration file.")
+def adjust_config_yaml(project, pubsub, version, k8s_sa):
+    filename = '../load-gen-service/config.yaml'
+    filedata = None
+    try:
+        with open("{}.example".format(filename), 'r') as file:
+            filedata = file.read()
+    except:
+        print("Couldn't read the load gen service config yaml example file\n")
         return False
 
+    filedata = filedata.replace("<DBName>", "test")
+    filedata = filedata.replace("<DBUser>", "postgres")
+    filedata = filedata.replace("<DBPassword>", "postgres")
+    filedata = filedata.replace("<PubSubTopic>", pubsub)
+    filedata = filedata.replace("<ProjectID>", project)
+    filedata = filedata.replace("<Version>", version)
+    filedata = filedata.replace("<K8SServiceAccount>", k8s_sa)
+
+    try:
+        with open(filename, 'w') as file:
+            file.write(filedata)
+    except:
+        print("Couldn't write out the load gen service config yaml file\n")
+        return False
+    return True
+
+def deploy_load_gen_service_container(project_id):
     proc = subprocess.run(["docker build -t breaking-loadgen-service ."], cwd='../load-gen-service', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("Couldn't build the loadgen-service container.\n")

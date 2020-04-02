@@ -13,12 +13,12 @@
 # limitations under the License.
 
 
-DB_NAME: my-db-name
-DB_USER: my-db-user
-DB_PASSWORD: my-db-password
+DB_NAME: <DBName>
+DB_USER: <DBUser>
+DB_PASSWORD: <DBPassword>
 
-PUBSUB_TOPIC: my-pubsub-topic
-PUBSUB_PROJECT: my-pubsub-project
+PUBSUB_TOPIC: <PubSubTopic>
+PUBSUB_PROJECT: <ProjectID>
 
-CONTAINER_IMAGE: gcr.io/my-project/my-load-gen-script
-CONTAINER_KSA: my-kubernetes-service-account
+CONTAINER_IMAGE: gcr.io/<ProjectID>/breaking-loadgen:<Version>
+CONTAINER_KSA: <K8SServiceAccount>
