@@ -100,9 +100,9 @@ print("Successfully enabled all required services\n")
 
 print("Creating and fetching service account (Note, you'll get an email about downloading a service key if you haven't downloaded it yet)")
 
-#service_account = build_helpers.create_service_account(project_id)
-#if service_account == None:
-#    sys.exit(1)
+service_account = build_helpers.create_service_account(project_id)
+if service_account == None:
+    sys.exit(1)
 
 print("Successfully created our service account\n")
 
@@ -112,9 +112,9 @@ print("Successfully created our service account\n")
 
 print("Creating new VPC network\n")
 
-vpc_name = build_helpers.create_vpc()
-if vpc_name == None:
-    sys.exit(1)
+#vpc_name = build_helpers.create_vpc()
+#if vpc_name == None:
+#    sys.exit(1)
 
 print("Successfully created VPC\n")
 
@@ -206,21 +206,27 @@ print("Finished deploying Cloud Run services\n")
 
 print("Deploying the Kubernetes cluster (another potentially lengthy wait)\n")
 
-k8s_name, k8s_ip = build_helpers.deploy_k8s(default_region, project_id, vpc_name)
-if k8s_name == None:
-    sys.exit(1)
-if k8s_ip == None:
-    sys.exit(1)
+#k8s_name, k8s_ip = build_helpers.deploy_k8s(default_region, project_id, vpc_name)
+#if k8s_name == None:
+#    sys.exit(1)
+#if k8s_ip == None:
+#    sys.exit(1)
 
 print("Successfully deployed GKE cluster\n")
 
 print("Verifying kubectl configuration")
 
-if not build_helpers.verify_kubectl(k8s_ip):
-    sys.exit(1)
+#if not build_helpers.verify_kubectl(k8s_ip):
+#    sys.exit(1)
 
 print("Verified\n")
 
+print("Generating service account file for linking workload identity to GCP service account")
+
+if not build_helpers.adjust_service_account_yaml(service_account):
+    sys.exit(1)
+
+print("Created service account file\n")
 
 #############################
 ## Deploy the Dataflow job ##

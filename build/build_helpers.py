@@ -449,6 +449,27 @@ def verify_kubectl(ip):
         return False
     return True
 
+def adjust_service_account_yaml(service_account):
+    filename = '../load-gen-script/service-account.yaml'
+    filedata = None
+    try:
+        with open("{}.example".format(filename), 'r') as file:
+            filedata = file.read()
+    except:
+        print("Couldn't read the service account yaml example file\n")
+        return False
+
+    filedata = filedata.replace("<GCPServiceAccountFullName>", service_account)
+
+    try:
+        with open(filename, 'w') as file:
+            file.write(filedata)
+    except:
+        print("Couldn't write out the service account yaml file\n")
+        return False
+
+    return True
+
 def create_storage_bucket(project, region, envvar):
     bucket_name = "gs://breaking-tmp-{}/".format(int(round(time.time() * 1000)))
     proc = subprocess.run(["gsutil mb -p {} -c STANDARD -l {} -b on {}".format(project, region, bucket_name)], shell=True, capture_output=True, text=True)
