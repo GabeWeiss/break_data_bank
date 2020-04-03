@@ -19,6 +19,7 @@ import time
 from typing import Awaitable, Tuple
 import asyncpg
 import random
+import uuid
 from .utils import Timer, OperationResults
 
 
@@ -31,14 +32,15 @@ TIMEOUT = 5
 async def generate_transaction_args(
     primary_host: str,
     replica_host: str,
-    port: int,
+    primary_port: int,
+    replica_port: int,
     database: str,
     user: str,
     password: str,
 ) -> Tuple:
     primary_pool = await asyncpg.create_pool(
         host=primary_host,
-        port=str(port),
+        port=primary_port,
         database=database,
         user=user,
         password=password,
@@ -47,7 +49,7 @@ async def generate_transaction_args(
     )
     replica_pool = await asyncpg.create_pool(
         host=replica_host,
-        port=str(port),
+        port=replica_port,
         database=database,
         user=user,
         password=password,
@@ -63,7 +65,8 @@ async def generate_transaction_args(
 READ_STATEMENTS = [
     "SELECT 1",
     "SELECT * from test_table",
-    "SELECT column1 from test_table" "SELECT column2 from test_table WHERE column1=1",
+    "SELECT column1 from test_table",
+    "SELECT column2 from test_table WHERE column1=1"
 ]
 
 
@@ -88,7 +91,7 @@ def read_operation(
 ) -> Awaitable[OperationResults]:
     stmt = random.choice(READ_STATEMENTS)
     pool = random.choice(
-        primary_pool, replica_pool
+        (primary_pool, replica_pool)
     )  # split the read operations between the primary and replica dbs
     return perform_operation(pool, "read", stmt)
 
@@ -96,7 +99,8 @@ def read_operation(
 def write_operation(
     primary_pool: asyncpg.pool, replica_pool: asyncpg.pool
 ) -> Awaitable[OperationResults]:
-    stmt = random.choice(write_STATEMENTS)
+    get_write_statement = random.choice(WRITE_STATEMENTS)
+    stmt = get_write_statement()
     pool = primary_pool  # all write operations go to the primary db
     return perform_operation(pool, "write", stmt)
 

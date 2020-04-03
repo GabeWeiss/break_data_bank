@@ -104,7 +104,8 @@ async def generate_load(args: configargparse.Namespace):
         op_args = await read_replica.generate_transaction_args(
             args.primary_host,
             args.replica_host,
-            args.port,
+            args.primary_port,
+            args.replica_port,
             args.database,
             args.user,
             args.password,
@@ -186,6 +187,8 @@ def main():
     read_replica_args.add_argument(
         "--replica_host", default="127.0.0.1", help="ip address for replica instance"
     )
+    read_replica_args.add_argument("--primary_port", default=5432, type=int, help="instance port for primary instance")
+    read_replica_args.add_argument("--replica_port", default=5432, type=int, help="instance port for replica instance")
 
     args = parser.parse_args()
 
