@@ -122,7 +122,7 @@ def create_vpc():
             print("WARNING: The VPC was already created. Beware the GKE cluster may fail to create later\n")
     return vpc_name
 
-def fetch_default_region(arg_region, envvar):
+def fetch_sql_region(arg_region, envvar):
         # If they specified a region, use that
     if arg_region != None:
         os.environ[envvar] = arg_region
@@ -147,6 +147,29 @@ def fetch_default_region(arg_region, envvar):
     if default_region == None:
         print("\nWasn't able to determine a region to start our Cloud Run services.\nPlease either set a region using 'gcloud config set run/region <region>'\nor set an environment variable '{}' with the name of the region.\nEnsure that the region is a valid one. Regions can be found by running\n'gcloud compute regions list'.\n".format(envvar))
     return default_region
+
+def extrapolate_spanner_region(sql_region):
+    x = re.search("^asia\-", sql_region)
+    if x:
+        return "nam-eur-asia1"
+    x = re.search("^australia\-", sql_region)
+    if x:
+        return "nam-eur-asia1"
+    x = re.search("^europe\-", sql_region)
+    if x:
+        return "eur3"
+    x = re.search("^northamerica\-", sql_region)
+    if x:
+        return "nam6"
+    x = re.search("^southamerica\-", sql_region)
+    if x:
+        return "nam6"
+    x = re.search("^us\-", sql_region)
+    if x:
+        return "nam6"
+
+    print("Couldn't figure out how to extrapolate from the region: '{}'".format(sql_region))
+    return None
 
 def fetch_project_id(envvar):
     project_id_process = subprocess.run(["gcloud config get-value project"], shell=True, capture_output=True, text=True)
@@ -177,7 +200,7 @@ def create_pubsub_topic(pubsub_topic):
             return False
     return True
 
-def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names, vpc):
+def create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc):
     i = 0
     for name in instance_names:
         cpu = vm_cpus[i]
@@ -188,9 +211,9 @@ def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names, vpc):
         # a micro instance (.6 GiB RAM and 1 vCPU) as our first instace
         db_create_process = None
         if cpu == "1":
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network={}".format(name, default_region, "db-f1-micro", vpc)], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network={}".format(name, sql_region, "db-f1-micro", vpc)], shell=True, capture_output=True, text=True)
         else:
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network={}".format(name, default_region, cpu, ram, vpc)], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network={}".format(name, sql_region, cpu, ram, vpc)], shell=True, capture_output=True, text=True)
 
         if db_create_process.returncode != 0:
             err = db_create_process.stderr
@@ -210,6 +233,29 @@ def create_sql_instances(default_region, vm_cpus, vm_ram, instance_names, vpc):
     print("")
     return True
 
+def create_spanner_instances(instance_names, spanner_region, nodes, spanner_descriptions):
+    i = 0
+    for name in instance_names:
+        node_count = nodes[i]
+        description = spanner_descriptions[i]
+        proc = subprocess.run(["gcloud spanner instances create {} --nodes={} --config={} --description=\"{}\"".format(name, node_count, spanner_region, description)], shell=True, capture_output=True, text=True)
+        if proc.returncode != 0:
+            err = proc.stderr
+                # This particular error is given when the instance
+                # already exists, in which case, for our purposes, we
+                # won't exit the script, we can assume they ran before
+                # and perhaps something went wrong, so they're retrying
+            x = re.search("is the subject of a conflict", err)
+            if not x:
+                print("There was a problem creating instance: '{}'".format(name))
+                print (err)
+                return False
+
+        print(" Spanner instance '{}' created with {} nodes".format(name, node_count))
+        i = i + 1
+
+    print("")
+    return True
 
 def initialize_firestore():
     global db
@@ -231,9 +277,7 @@ def set_sql_db_resources(names):
     cloud_sql_base_collection = db.collection(u'db_resources').document(u'cloud-sql').collection(u'sizes')
 
     cloud_sql_sm_collection = cloud_sql_base_collection.document(u'1x').collection(u'resources')
-
     cloud_sql_med_collection = cloud_sql_base_collection.document(u'2x').collection(u'resources')
-
     cloud_sql_lrg_collection = cloud_sql_base_collection.document(u'4x').collection(u'resources')
 
     i = 0
@@ -253,7 +297,26 @@ def set_sql_db_resources(names):
             cloud_sql_doc = cloud_sql_lrg_collection.document(out)
 
         cloud_sql_doc.set({ u'expiry': 0 })
-        print("Added {} to Firestore".format(name))
+        print(" Added {} to Firestore".format(name))
+        i = i + 1
+
+    print("")
+    return True
+
+def set_spanner_db_resources(names):
+    global db
+
+    cloud_spanner_base_collection = db.collection(u'db_resources').document(u'cloud-spanner').collection(u'sizes')
+    sizes = [ "1x", "2x", "4x" ]
+    cloud_spanner_sm_collection = cloud_spanner_base_collection.document(u'1x').collection(u'resources')
+    cloud_spanner_med_collection = cloud_spanner_base_collection.document(u'2x').collection(u'resources')
+    cloud_spanner_lrg_collection = cloud_spanner_base_collection.document(u'4x').collection(u'resources')
+
+    i = 0
+    for name in names:
+        cloud_spanner_doc = cloud_spanner_base_collection.document(sizes[i]).collection(u'resources').document(name)
+        cloud_spanner_doc.set({ u'expiry': 0 })
+        print(" Added {} to Firestore".format(name))
         i = i + 1
 
     print("")

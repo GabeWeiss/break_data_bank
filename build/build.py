@@ -71,11 +71,19 @@ print(" Project id: '{}'".format(project_id))
 # NOTE: This script will attempt to use a set of defaults for the
 # region to set up the services. If they aren't set, it will fall
 # back (and notify user) to an environment variable.
-default_region = build_helpers.fetch_default_region(args.region, region_envvar)
-if default_region == None:
+sql_region = build_helpers.fetch_sql_region(args.region, region_envvar)
+if sql_region == None:
     sys.exit(1)
 
-print(" Region: '{}'".format(default_region))
+print(" Region: '{}'".format(sql_region))
+
+# We try to determine a good spanner region based on the region specified
+# to keep them close to the same area
+spanner_region = build_helpers.extrapolate_spanner_region(sql_region)
+if spanner_region == None:
+    sys.exit(1)
+
+print(" Spanner region: '{}'".format(spanner_region))
 
 pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub, pubsub_envvar)
 if pubsub_topic == None:
@@ -133,16 +141,17 @@ print("  Successfully created Pub/Sub topic\n")
 ## Create Database instances ##
 ###############################
 
+db_name_version = "06"
+instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
+
 # Cloud SQL
 
 print("Starting to create Cloud SQL instances (This takes awhile, don't panic)\n")
 
 vm_cpus = [ "1", "4", "16" ]
 vm_ram = [ "1GiB", "4GiB", "16GiB" ]
-db_name_version = "06"
-instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
 
-#if not build_helpers.create_sql_instances(default_region, vm_cpus, vm_ram, instance_names):
+#if not build_helpers.create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names):
 #    sys.exit(1)
 
 print("  Finished creating Cloud SQL instances\n")
@@ -155,7 +164,11 @@ print ("  Finished creating Cloud SQL w/ replica instances\n")
 
 print("Starting to create Cloud Spanner instances\n")
 
-# TODO: Create Cloud Spanner instances
+power_unit = [ "1", "4", "10" ]
+spanner_descriptions = [ "Breaking Small{}".format(db_name_version), "Breaking Medium{}".format(db_name_version), "Breaking Large{}".format(db_name_version) ]
+
+if not build_helpers.create_spanner_instances(instance_names, spanner_region, power_unit, spanner_descriptions):
+    sys.exit(1)
 
 print("  Finished creating Cloud Spanner instances\n")
 
@@ -165,11 +178,14 @@ print("  Finished creating Cloud Spanner instances\n")
 
 print("Starting to add all database resource meta data to Firestore\n")
 
-#if not build_helpers.initialize_firestore():
-#    sys.exit(1)
+if not build_helpers.initialize_firestore():
+    sys.exit(1)
 
 #if not build_helpers.set_sql_db_resources(instance_names):
 #    sys.exit(1)
+
+if not build_helpers.set_spanner_db_resources(instance_names):
+    sys.exit(1)
 
 print("  Finished adding all database resource metadata to Firestore\n")
 
@@ -183,9 +199,9 @@ print("  Finished adding all database resource metadata to Firestore\n")
 # until after the containers are deployed
 print(" Generating k8s service account configuration")
 
-k8s_service_account = build_helpers.adjust_k8s_service_account_yaml(service_account)
-if k8s_service_account == None:
-    sys.exit(1)
+#k8s_service_account = build_helpers.adjust_k8s_service_account_yaml(service_account)
+#if k8s_service_account == None:
+#    sys.exit(1)
 
 print("   Generated config file")
 
@@ -202,14 +218,14 @@ print("  Finished building and deploying demo microservice containers\n")
 
 print("Creating the config yaml file for the load gen service")
 
-if not build_helpers.adjust_config_yaml(project_id, pubsub_topic, args.version, k8s_service_account):
-    sys.exit(1)
+#if not build_helpers.adjust_config_yaml(project_id, pubsub_topic, args.version, k8s_service_account):
+#    sys.exit(1)
 
 print("  Created\n")
 
 print("Starting to deploy Cloud Run services. This will take a bit for each one\n")
 
-#if not build_helpers.deploy_run_services(service_account, default_region, project_id, args.version):
+#if not build_helpers.deploy_run_services(service_account, sql_region, project_id, args.version):
 #    sys.exit(1)
 
 # TODO: Fetch the URL for the orchestrator Cloud Run instance so
@@ -225,7 +241,7 @@ print("  Finished deploying Cloud Run services\n")
 
 print("Deploying the Kubernetes cluster (another potentially lengthy wait)")
 
-#k8s_name, k8s_ip = build_helpers.deploy_k8s(default_region, project_id, vpc_name)
+#k8s_name, k8s_ip = build_helpers.deploy_k8s(sql_region, project_id, vpc_name)
 #if k8s_name == None:
 #    sys.exit(1)
 #if k8s_ip == None:
@@ -265,7 +281,7 @@ print("  Finished up service account credentials linkage for GKE's workload iden
 print("Creating the Dataflow staging bucket")
 
 # First we need a temporary bucket in Cloud Storage for the job
-#gcs_bucket = build_helpers.create_storage_bucket(project_id, default_region, dataflow_gcs_bucket_envvar)
+#gcs_bucket = build_helpers.create_storage_bucket(project_id, sql_region, dataflow_gcs_bucket_envvar)
 #if gcs_bucket == None:
 #    sys.exit(1)
 
