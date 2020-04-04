@@ -31,21 +31,26 @@ logger = logging.getLogger(__name__)
 READ_STATEMENTS = [
     "SELECT 1",
     "SELECT * from test_table",
-    "SELECT column1 from test_table"
-    "SELECT column2 from test_table WHERE column1=1"
+    "SELECT column1 from test_table",
+    "SELECT column2 from test_table WHERE column1=1",
 ]
 
 
-def insert_new_row()-> str:
-    return "INSERT INTO test_table (index, column1, column2, column3) VALUES ('{}', 1, 1, 1)".format(uuid.uuid4())
+def insert_new_row() -> str:
+    return "INSERT INTO test_table (index, column1, column2, column3) VALUES ('{}', 1, 1, 1)".format(
+        uuid.uuid4()
+    )
 
-def update_row()-> str:
+
+def update_row() -> str:
     return "UPDATE test_table SET column1=column1*2 WHERE column1=1 "
+
 
 WRITE_STATEMENTS = [
     insert_new_row,
-    update_row, 
+    update_row,
 ]
+
 
 def run_function_as_async(func):
     @wraps(func)
@@ -63,7 +68,9 @@ def get_database_client(instance: str, database: str):
 
 
 @run_function_as_async
-def execute_read_statement(db_client: spanner_admin_database_v1.types.Database, statement: str, timeout: float):
+def execute_read_statement(
+    db_client: spanner_admin_database_v1.types.Database, statement: str, timeout: float
+):
     with db_client.snapshot() as snapshot:
         results = []
         rows = snapshot.execute_sql(statement, timeout=timeout)
@@ -71,13 +78,15 @@ def execute_read_statement(db_client: spanner_admin_database_v1.types.Database, 
             results.append(row)
         return results
 
+
 @run_function_as_async
-def execute_write_statement(db_client: spanner_admin_database_v1.types.Database, statement: str, timeout: float):
+def execute_write_statement(
+    db_client: spanner_admin_database_v1.types.Database, statement: str, timeout: float
+):
     def write_in_transaction(transaction):
         transaction.execute_update(statement)
+
     db_client.run_in_transaction(write_in_transaction, timeout_secs=timeout)
-    
-    
 
 
 async def generate_transaction_args(instance: str, database: str) -> Tuple:
@@ -85,18 +94,26 @@ async def generate_transaction_args(instance: str, database: str) -> Tuple:
     return (client,)
 
 
-def read_operation(db_client: spanner_admin_database_v1.types.Database) -> Awaitable[OperationResults]:
+def read_operation(
+    db_client: spanner_admin_database_v1.types.Database,
+) -> Awaitable[OperationResults]:
     stmt = random.choice(READ_STATEMENTS)
     return perform_operation(db_client, "read", stmt)
 
 
-def write_operation(db_client: spanner_admin_database_v1.types.Database) -> Awaitable[OperationResults]:
+def write_operation(
+    db_client: spanner_admin_database_v1.types.Database,
+) -> Awaitable[OperationResults]:
     get_write_statement = random.choice(WRITE_STATEMENTS)
     stmt = get_write_statement()
     return perform_operation(db_client, "write", stmt)
 
+
 async def perform_operation(
-    db_client: spanner_admin_database_v1.types.Database, operation: str, statement: str, timeout: float = 5
+    db_client: spanner_admin_database_v1.types.Database,
+    operation: str,
+    statement: str,
+    timeout: float = 5,
 ) -> OperationResults:
     """Performs a simple transaction with the provided pool. """
     success, trans_timer = (
