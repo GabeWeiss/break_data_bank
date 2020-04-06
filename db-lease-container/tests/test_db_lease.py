@@ -7,10 +7,6 @@ from unittest import mock
 import pytest
 from google.cloud import firestore
 
-from main import app
-
-test_app = app.test_client()
-
 
 @pytest.fixture(name="test_db", autouse=True)
 def use_test_db(monkeypatch):
@@ -29,7 +25,14 @@ def resource_available(test_db):
         .document("1x")
         .collection("resources")
     )
-    pool_ref.add({"expiry": time.time() - 10})
+    pool_ref.add(
+        {
+            "expiry": time.time() - 10,
+            "status": "ready",
+            "database_type": "cloud-sql",
+            "database_size": "1x",
+        }
+    )
     yield
     for resource in pool_ref.stream():
         resource.reference.delete()
@@ -44,14 +47,21 @@ def resource_unavailable(test_db):
         .document("1x")
         .collection("resources")
     )
-    pool_ref.add({"expiry": time.time() + 3600})
+    pool_ref.add(
+        {
+            "expiry": time.time() + 3600,
+            "status": "leased",
+            "database_type": "cloud-sql",
+            "database_size": "1x",
+        }
+    )
     yield
     for resource in pool_ref.stream():
         resource.reference.delete()
 
 
 @pytest.mark.asyncio
-async def test_add_resource_to_pool(test_db):
+async def test_add_resource_to_pool(app, test_db):
     client = app.test_client()
     test_data = {
         "resource_id": "test-project:us-west2:test-instance",
@@ -69,7 +79,7 @@ async def test_add_resource_to_pool(test_db):
 
 
 @pytest.mark.asyncio
-async def test_add_resource_already_exists(test_db):
+async def test_add_resource_already_exists(app, test_db):
     client = app.test_client()
     test_data = {
         "resource_id": "test-project:us-west2:test-instance",
@@ -88,7 +98,7 @@ async def test_add_resource_already_exists(test_db):
 
 
 @pytest.mark.asyncio
-async def test_lease_resource_when_available(test_db, resource_available):
+async def test_lease_resource_when_available(app, test_db, resource_available):
     client = app.test_client()
     test_data = {"database_type": 1, "database_size": 1, "duration": 300}
     headers = {"Content-Type": "application/json"}
@@ -103,7 +113,7 @@ async def test_lease_resource_when_available(test_db, resource_available):
 
 
 @pytest.mark.asyncio
-async def test_lease_resource_when_unavailable(test_db, resource_unavailable):
+async def test_lease_resource_when_unavailable(app, test_db, resource_unavailable):
     client = app.test_client()
     test_data = {"database_type": 1, "database_size": 1, "duration": 300}
     headers = {"Content-Type": "application/json"}
@@ -117,7 +127,7 @@ async def test_lease_resource_when_unavailable(test_db, resource_unavailable):
 
 
 @pytest.mark.asyncio
-async def test_add_resource_logs_exceptions(test_db, caplog):
+async def test_add_resource_logs_exceptions(app, test_db, caplog):
     client = app.test_client()
     test_data = {
         "resource_id": "test-project:us-west2:test",
@@ -132,7 +142,7 @@ async def test_add_resource_logs_exceptions(test_db, caplog):
 
 
 @pytest.mark.asyncio
-async def test_lease_resource_logs_exceptions(test_db, caplog):
+async def test_lease_resource_logs_exceptions(app, test_db, caplog):
     client = app.test_client()
     test_data = {"database_type": 1, "database_size": 1, "duration": 300}
     headers = {"Content-Type": "application/json"}
