@@ -28,9 +28,12 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.cloud.FirestoreClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
 import java.awt.*;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import org.apache.avro.reflect.Nullable;
@@ -56,68 +59,269 @@ public class BreakingDataTransactions {
     // When true, this pulls from the specified Pub/Sub topic
   static Boolean REAL = true;
     // when set to true the job gets deployed to Cloud Dataflow
-  static Boolean DEPLOY = false;
+  static Boolean DEPLOY = true;
 
   public static void main(String[] args) {
+      // validate our env vars
+    if (GlobalVars.projectId   == null ||
+        GlobalVars.pubsubTopic == null ||
+        GlobalVars.gcsBucket   == null) {
+          System.out.println("You have to set environment variables for project (BREAKING_PROJECT), pubsub topic (BREAKING_PUBSUB) and Cloud Storage bucket for staging (BREAKING_DATAFLOW_BUCKET) in order to deploy this pipeline.");
+          System.exit(1);
+        }
+
+      // Initialize our Firestore instance
+    try {
+    GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
+    FirebaseOptions firebaseOptions =
+        new FirebaseOptions.Builder()
+            .setCredentials(credentials)
+            .setProjectId(GlobalVars.projectId)
+            .build();
+    FirebaseApp firebaseApp = FirebaseApp.initializeApp(firebaseOptions);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+      // Start dataflow pipeline
     DataflowPipelineOptions options =
         PipelineOptionsFactory.create().as(DataflowPipelineOptions.class);
 
-    Pipeline p;
-    if (DEPLOY)
-      p = Pipeline.create(options);
-    else
-      p = Pipeline.create();
+    options.setProject(GlobalVars.projectId);
 
-    options.setProject("gweiss-simple-path");
-    options.setRunner(DataflowRunner.class);
-    options.setTempLocation("gs://gweiss-breaking-test/tmp");
+    if (DEPLOY) {
+        options.setRunner(DataflowRunner.class);
+        options.setTempLocation(GlobalVars.gcsBucket);
+        //options.setRegion(GlobalVars.region);
+    }
+
+    Pipeline p = Pipeline.create(options);
 
     PCollection<String> jsonStrings;
 
     if (REAL) {
-      String pubsubTopic = "projects/gweiss-simple-path/topics/breaking-test";
-      jsonStrings = p.apply(PubsubIO.readStrings().fromTopic(pubsubTopic));
+      jsonStrings = p.apply(PubsubIO.readStrings().fromTopic(GlobalVars.pubsubTopic));
     } else {
       Instant now = new Instant();
       jsonStrings =
           p.apply(
               Create.timestamped(
                   TimestampedValue.of(
-                      "{ "
-                          + "\"connection_start\": 0, "
-                          + "\"transaction_start\": 1, "
-                          + "\"transaction_end\": 2, "
-                          + "\"connection_end\": 4, "
+                      "[ "
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"write\", "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
-                          + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412421 "
-                          + "}",
+                          + "\"connection_start\": 1219110.809202855, "
+                          + "\"connection_end\": 1219110.814320733, "
+                          + "\"transaction_start\": 1219110.80930547, "
+                          + "\"transaction_end\": 1219110.810471273}, "
+
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.80192983, "
+                          + "\"connection_end\": 1219110.818258031, "
+                          + "\"transaction_start\": 1219110.802201267, "
+                          + "\"transaction_end\": 1219110.804397151}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"write\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.80463735, "
+                          + "\"connection_end\": 1219110.816569818, "
+                          + "\"transaction_start\": 1219110.804718464, "
+                          + "\"transaction_end\": 1219110.806886593}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.812853771, "
+                          + "\"connection_end\": 1219110.820495596, "
+                          + "\"transaction_start\": 1219110.812978694, "
+                          + "\"transaction_end\": 1219110.816987723}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.818118327, "
+                          + "\"connection_end\": 1219110.822654367, "
+                          + "\"transaction_start\": 1219110.81897456, "
+                          + "\"transaction_end\": 1219110.820711101}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.820620873, "
+                          + "\"connection_end\": 1219110.823521713, "
+                          + "\"transaction_start\": 1219110.820799422, "
+                          + "\"transaction_end\": 1219110.822552412}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.824808039, "
+                          + "\"connection_end\": 1219110.825840374, "
+                          + "\"transaction_start\": 1219110.824886913, "
+                          + "\"transaction_end\": 1219110.825233627}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.829361968, "
+                          + "\"connection_end\": 1219110.830783106, "
+                          + "\"transaction_start\": 1219110.829457245, "
+                          + "\"transaction_end\": 1219110.829868906}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"write\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.833400321, "
+                          + "\"connection_end\": 1219110.83450169, "
+                          + "\"transaction_start\": 1219110.833480902, "
+                          + "\"transaction_end\": 1219110.833838753}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.836986726, "
+                          + "\"connection_end\": 1219110.838121447, "
+                          + "\"transaction_start\": 1219110.837086874, "
+                          + "\"transaction_end\": 1219110.837416985}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.841782659, "
+                          + "\"connection_end\": 1219110.843185472, "
+                          + "\"transaction_start\": 1219110.841866135, "
+                          + "\"transaction_end\": 1219110.842263966}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.845508843, "
+                          + "\"connection_end\": 1219110.846875106, "
+                          + "\"transaction_start\": 1219110.845590623, "
+                          + "\"transaction_end\": 1219110.845949925}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.849355644, "
+                          + "\"connection_end\": 1219110.850616399, "
+                          + "\"transaction_start\": 1219110.849459986, "
+                          + "\"transaction_end\": 1219110.849797437}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.853090156, "
+                          + "\"connection_end\": 1219110.85418448, "
+                          + "\"transaction_start\": 1219110.85317578, "
+                          + "\"transaction_end\": 1219110.85363494}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.856722351, "
+                          + "\"connection_end\": 1219110.857815271, "
+                          + "\"transaction_start\": 1219110.856807875, "
+                          + "\"transaction_end\": 1219110.857228336}"
+                      + "]",
                       now),
                   TimestampedValue.of(
-                      "{ "
-                          + "\"connection_start\": 0, "
-                          + "\"transaction_start\": 3, "
-                          + "\"transaction_end\": 6, "
-                          + "\"connection_end\": 8, "
-                          + "\"success\": false, "
-                          + "\"database_type\": \"cloud_sql\", "
-                          + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412422 "
-                          + "}",
-                      now.plus(Duration.standardSeconds(2))),
-                  TimestampedValue.of(
-                      "{ "
-                          + "\"connection_start\": 0, "
-                          + "\"transaction_start\": 1, "
-                          + "\"transaction_end\": 2, "
-                          + "\"connection_end\": 4, "
+                      "[ "
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"write\", "
                           + "\"success\": true, "
-                          + "\"database_type\": \"cloud_sql\", "
-                          + "\"transaction_type\": \"read\", "
-                          + "\"load_id\": 123412423 "
-                          + "}",
-                      now.plus(Duration.standardSeconds(8)))));
+                          + "\"connection_start\": 1219110.845508843, "
+                          + "\"connection_end\": 1219110.846875106, "
+                          + "\"transaction_start\": 1219110.845590623, "
+                          + "\"transaction_end\": 1219110.845949925}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.849355644, "
+                          + "\"connection_end\": 1219110.850616399, "
+                          + "\"transaction_start\": 1219110.849459986, "
+                          + "\"transaction_end\": 1219110.849797437}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"write\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.853090156, "
+                          + "\"connection_end\": 1219110.85418448, "
+                          + "\"transaction_start\": 1219110.85317578, "
+                          + "\"transaction_end\": 1219110.85363494}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.856722351, "
+                          + "\"connection_end\": 1219110.857815271, "
+                          + "\"transaction_start\": 1219110.856807875, "
+                          + "\"transaction_end\": 1219110.857228336}"
+                        + "]",
+                      now.plus(Duration.standardSeconds(6))),
+                  TimestampedValue.of(
+                      "[ "
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.845508843, "
+                          + "\"connection_end\": 1219110.846875106, "
+                          + "\"transaction_start\": 1219110.845590623, "
+                          + "\"transaction_end\": 1219110.845949925}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.849355644, "
+                          + "\"connection_end\": 1219110.850616399, "
+                          + "\"transaction_start\": 1219110.849459986, "
+                          + "\"transaction_end\": 1219110.849797437}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"read\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.853090156, "
+                          + "\"connection_end\": 1219110.85418448, "
+                          + "\"transaction_start\": 1219110.85317578, "
+                          + "\"transaction_end\": 1219110.85363494}, "
+                          
+                          + "{\"workload_id\": \"83f02857-e970-4b5a-8418-64a8cc4308a7\", "
+                          + "\"job_id\": \"cPBcIkgQssFELSUJCCmJ\", "
+                          + "\"operation\": \"write\", "
+                          + "\"success\": true, "
+                          + "\"connection_start\": 1219110.856722351, "
+                          + "\"connection_end\": 1219110.857815271, "
+                          + "\"transaction_start\": 1219110.856807875, "
+                          + "\"transaction_end\": 1219110.857228336}"
+                        + "]",
+                      now.plus(Duration.standardSeconds(12)))));
     }
 
     // Convert to Schema Object
@@ -127,46 +331,45 @@ public class BreakingDataTransactions {
             .apply(ParDo.of(JSONToPOJO.create(Data.class)))
             .setCoder(AvroCoder.of(Data.class));
 
-    try {
     PCollection<Result> result =
         dataCollection
             .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
-            .apply(WithKeys.of(x -> x.transaction_type))
+            .apply(WithKeys.of(x -> x.operation + "-" + x.job_id))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), AvroCoder.of(Data.class)))
             .apply(Combine.<String, Data, Result>perKey(new DataAnalysis()))
             .apply(Reify.windowsInValue())
-            .apply(
-                MapElements.into(TypeDescriptor.of(Result.class))
+            .apply(MapElements.into(TypeDescriptor.of(Result.class))
                     .<KV<String, ValueInSingleWindow<Result>>>via(
                         x -> {
                           Result r = new Result();
-                          r.query_action = x.getKey();
+                          String key = x.getKey();
+                          r.query_action = key.substring(0, key.indexOf("-"));
+                          r.job_id = key.substring(key.indexOf("-") + 1);
                           r.average_latency = x.getValue().getValue().average_latency;
                           r.failure_percent = x.getValue().getValue().failure_percent;
                           r.timestamp = x.getValue().getTimestamp().getMillis();
                           return r;
                         }));
 
-    result.apply(
+          // this node will (hopefully) actually write out to Firestore
+        result.apply(ParDo.of(new FireStoreOutput()));
+
         MapElements.<String>into(TypeDescriptors.strings())
             .<Result>via(
                 x -> {
                   System.out.println(x);
-                  System.out.println("HOLY SHIT");
+                  System.out.println("Processing");
                   return "";
-                }));
-      } catch(Exception ex) {
-        System.out.println("An exception occurred");
-      }
+                });
 
     p.run();
+
   }
 
   public static class DataAnalysis extends CombineFn<Data, ResultAggregate, Result> {
 
     @Override
     public ResultAggregate createAccumulator() {
-      System.out.println("Result Aggregate created");
       return new ResultAggregate();
     }
 
@@ -174,14 +377,13 @@ public class BreakingDataTransactions {
     public ResultAggregate addInput(ResultAggregate mutableAccumulator, Data input) {
       mutableAccumulator.count += 1;
       mutableAccumulator.fail += (input.success) ? 0 : 1;
-      mutableAccumulator.latencySum += input.connection_end - input.connection_start;
-      System.out.println("addingInput");
+      mutableAccumulator.latencySum += (input.transaction_end - input.transaction_start);
+      //System.out.println("addingInput");
       return mutableAccumulator;
     }
 
     @Override
     public ResultAggregate mergeAccumulators(Iterable<ResultAggregate> accumulators) {
-      System.out.println("mergeAccumulators called");
       ResultAggregate resultAggregate = createAccumulator();
       for (ResultAggregate r : accumulators) {
         resultAggregate.count += r.count;
@@ -196,27 +398,27 @@ public class BreakingDataTransactions {
       Result result = new Result();
       result.average_latency = accumulator.latencySum / accumulator.count;
       result.failure_percent = ((float) accumulator.fail / (float) accumulator.count) * 100;
-      System.out.println("I'm extracting some output");
+      //System.out.println("I'm extracting some output");
       return result;
     }
   }
 
   @DefaultCoder(AvroCoder.class)
   public static class Data {
-    public int connection_start;
-    public int transaction_start;
-    public int transaction_end;
-    public int connection_end;
-    public boolean success;
-    public String database_type;
-    public String transaction_type;
-    public int load_id;
+    public float connection_start;  // when connection started
+    public float transaction_start; // when transaction started
+    public float transaction_end;   // when transaction ended
+    public float connection_end;    // when connection ended
+    public boolean success;         // whether it succeeded or not
+    public String operation;        // read/write
+    public String workload_id;      // ignored, this is the load-gen-script's UUID
+    public String job_id;           // holds the Firestore doc ID for db run (type, read/write pattern, intensity)
   }
 
   @DefaultCoder(AvroCoder.class)
   public static class ResultAggregate {
     public int fail;
-    public int latencySum;
+    public float latencySum;
     public int count;
   }
 
@@ -225,6 +427,7 @@ public class BreakingDataTransactions {
     public float failure_percent;
     public float average_latency;
     @Nullable public String query_action;
+    @Nullable public String job_id;
     public long timestamp;
 
     @Override
@@ -238,33 +441,20 @@ public class BreakingDataTransactions {
     }
   }
 
-  public static class FireStoreOutput extends DoFn<Result, PDone> {
+  public static class FireStoreOutput extends DoFn<Result, String> {
 
     Firestore db;
 
-    @Setup
-    public void setup() {
-      GoogleCredentials credentials = null;
-      try {
-        credentials = GoogleCredentials.getApplicationDefault();
-
-        FirebaseOptions options =
-            new FirebaseOptions.Builder()
-                .setCredentials(credentials)
-                .setProjectId("gweiss-simple-path")
-                .build();
-        FirebaseApp.initializeApp(options);
-
-        db = FirestoreClient.getFirestore();
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
-    }
-
     @ProcessElement
     public void processElement(@Element Result result) {
-    
-      DocumentReference docRef = db.collection("events").document("next2020").collection("transactions").document();
+      db = FirestoreClient.getFirestore();
+      DocumentReference docRef = db.collection("events")
+                                   .document("next2020")
+                                   .collection("transactions")
+                                   .document(result.job_id)
+                                   .collection("transactions")
+                                   .document();
+      //System.out.println(docRef.getId());
       // Add document data  with id "alovelace" using a hashmap
       Map<String, Object> data = new HashMap<>();
       data.put("failure_percent", result.failure_percent);
@@ -306,11 +496,18 @@ public class BreakingDataTransactions {
     @ProcessElement
     public void process(@Element String input, @Timestamp Instant timestamp, OutputReceiver<T> o) {
       try {
-        o.output(gson.fromJson(input, clazz));
+
+        Type type = new TypeToken<List<T>>() {}.getType();
+
+        List<T> array = gson.fromJson(input,type);
+
+        for(T e : array) {
+          o.output(gson.fromJson(e.toString(),clazz));
+        }
+
       } catch (Exception ex) {
-        System.out.println(ex);
+        System.out.println("Error in processing:" + ex);
       }
-      System.out.println(input);
     }
   }
 }

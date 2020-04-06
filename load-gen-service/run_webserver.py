@@ -17,4 +17,4 @@
 import load_gen_webserver
 
 if __name__ == "__main__":
-    load_gen_webserver.create_app().run(host="localhost",port="5002")
+    load_gen_webserver.create_app().run()
