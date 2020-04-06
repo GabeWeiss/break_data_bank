@@ -75,7 +75,7 @@ def add(transaction, db_type, size, resource_id, ip_address, replica_ip=None):
     )
     snapshot = pool_ref.document(resource_id).get(transaction=transaction)
 
-    connection_string = resource_id if db_type == CLOUD_SPANNER else replica_ip
+    connection_string = resource_id if db_type == CLOUD_SPANNER else ip_address
 
     if not snapshot.exists:
         resource_ref = pool_ref.document(resource_id)
@@ -86,7 +86,8 @@ def add(transaction, db_type, size, resource_id, ip_address, replica_ip=None):
                 "expiry": time.time() - 10,
                 "connection_string": connection_string,
                 "replica_ip": replica_ip,
-                "status": "ready"
+                "status": "ready",
+                "database_type": DB_TYPES[db_type]
             },
         )
     else:
