@@ -27,6 +27,7 @@ def get_expired_resouces(db: firestore.Client):
     Queries Firestore for all resources that are expired, but not ready
     to return to the pool
     """
+
     query = (
         db.collection_group("resources")
         .where("expiry", "<", time.time())
@@ -101,7 +102,7 @@ async def clean_instances(db: firestore.Client, logger: logging.Logger):
         resources = await get_expired_resouces(db)
         for resource in resources:
             db_type = resource.get("database_type")
-            db_size = resource.get("database_size")
+            db_size = resource.reference.parent.parent.id
             clean_func = {
                 "spanner": clean_spanner_instance,
                 "cloud-sql": clean_cloud_sql_instance,
