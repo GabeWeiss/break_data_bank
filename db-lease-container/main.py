@@ -11,30 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import asyncio
 import time
-from functools import wraps, partial
 
 from quart import Quart, request, jsonify
 from google.cloud import firestore
 
 from db_lease import helpers
-from db_lease.helpers import DB_SIZES, DB_TYPES
+from db_lease.helpers import DB_SIZES, DB_TYPES, run_function_as_async
+from db_lease import db_clean
 
 app = Quart(__name__)
 
 db = firestore.Client()
-
-
-def run_function_as_async(func):
-    @wraps(func)
-    async def wrapped_sync_function(*args, **kwargs):
-        partial_func = partial(func, *args, **kwargs)
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, partial_func)
-
-    return wrapped_sync_function
 
 
 @run_function_as_async
@@ -57,8 +46,9 @@ def lease(transaction, db_type, size, duration):
     for resource in resources:
         if helpers.is_available(resource):
             res_ref = pool_ref.document(resource.id)
-            # TODO: set "clean" boolean to false here
-            transaction.update(res_ref, {"expiry": time.time() + duration})
+            transaction.update(
+                res_ref, {"expiry": time.time() + duration, "status": "leased"}
+            )
             available = resource
             break
 
@@ -82,9 +72,32 @@ def add(transaction, db_type, size, resource_id):
     snapshot = pool_ref.document(resource_id).get(transaction=transaction)
     if not snapshot.exists:
         resource_ref = pool_ref.document(resource_id)
-        transaction.set(resource_ref, {"expiry": time.time() - 10})
+        transaction.set(
+            resource_ref,
+            {
+                "expiry": time.time() - 10,
+                "database_type": DB_TYPES[db_type],
+                "database_size": DB_SIZES[size],
+                "status": "ready",
+            },
+        )
     else:
         raise Exception(f"Resource {resource_id} already in pool")
+
+
+@app.before_serving
+async def clear_databases():
+    # this event is used to start and stop a long running task to periodically clear databases
+    app.cleanup_event = asyncio.Event()
+    loop = asyncio.get_event_loop()
+    app.cleanup_event.set()
+    loop.create_task(db_clean.loop_clean_instances(db, app.logger, app.cleanup_event))
+
+
+@app.after_serving
+async def stop_cleanup_task():
+    app.cleanup_event.clear()
+    await app.cleanup_event.wait()
 
 
 @app.route("/isitworking", methods=["GET"])
@@ -172,6 +185,14 @@ async def add_resource():
         except Exception:
             app.logger.exception("Error occurred during transaction:")
             return f"Error occurred during transaction. See logs for info", 500
+
+
+@app.route("/force-clean", methods=["POST"])
+async def force_clean():
+    """
+    Endpoint to force the database cleaning task to run
+    """
+    db_clean.clean_instances(db, app.logger)
 
 
 if __name__ == "__main__":
