@@ -28,22 +28,31 @@ from .utils import Timer, OperationResults
 
 logger = logging.getLogger(__name__)
 
+# DDL to create table:
+
+# CREATE TABLE shapes (
+# 	uuid STRING(MAX) NOT NULL,
+# 	fillColor STRING(MAX),
+# 	lineColor STRING(MAX),
+# 	shape STRING(MAX),
+# ) PRIMARY KEY (uuid)
+
+
 READ_STATEMENTS = [
-    "SELECT 1",
-    "SELECT * from test_table",
-    "SELECT column1 from test_table",
-    "SELECT column2 from test_table WHERE column1=1",
+    "SELECT * from shapes",
+    "SELECT fillColor from shapes",
+    "SELECT lineColor from shapes WHERE fillColor='red'",
 ]
 
 
 def insert_new_row() -> str:
-    return "INSERT INTO test_table (index, column1, column2, column3) VALUES ('{}', 1, 1, 1)".format(
+    return "INSERT INTO shapes (uuid, fillColor, lineColor, shape) VALUES ('{}', 'red', 'black', 'square')".format(
         uuid.uuid4()
     )
 
 
 def update_row() -> str:
-    return "UPDATE test_table SET column1=column1*2 WHERE column1=1 "
+    return "UPDATE shapes SET lineColor='black' WHERE fillColor='red'"
 
 
 WRITE_STATEMENTS = [
