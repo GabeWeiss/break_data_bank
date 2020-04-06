@@ -137,12 +137,12 @@ async def generate_load(args: configargparse.Namespace):
     logger.info(f"Delaying load start until {args.delay_until} (~{delay:.4f}s)")
 
     # Schedule the transactions to start processing at the correct time
-    cur_time, start_time = args.delay_until, args.delay_until
+    start_time = args.delay_until
     transactions = []
 
     # Schedule transactions for both read and write operations
-    schedule_load(read_load, cur_time, read, transactions)
-    schedule_load(write_load, cur_time, write, transactions)
+    schedule_load(read_load, args.delay_until, read, transactions)
+    schedule_load(write_load, args.delay_until, write, transactions)
 
     # Wait for all transactions to complete.
     await asyncio.gather(*transactions)
@@ -182,20 +182,6 @@ def main():
     parser.add_argument(
         "--write-pattern",
         required=True,
-        type=int,
-        choices=[TRAFFIC_LOW, TRAFFIC_HIGH, TRAFFIC_SPIKEY],
-    )
-
-    parser.add_argument(
-        "--read-intensity",
-        default=HIGH_INTENSITY,
-        type=int,
-        choices=[TRAFFIC_LOW, TRAFFIC_HIGH, TRAFFIC_SPIKEY],
-    )
-
-    parser.add_argument(
-        "--write-intensity",
-        default=HIGH_INTENSITY,
         type=int,
         choices=[TRAFFIC_LOW, TRAFFIC_HIGH, TRAFFIC_SPIKEY],
     )
