@@ -25,6 +25,10 @@ app = Quart(__name__)
 
 db = firestore.Client()
 
+CLOUD_SQL = 1
+CLOUD_SQL_READ_REPLICA = 2
+CLOUD_SPANNER = 3
+
 
 @run_function_as_async
 @firestore.transactional
@@ -57,7 +61,7 @@ def lease(transaction, db_type, size, duration):
 
 @run_function_as_async
 @firestore.transactional
-def add(transaction, db_type, size, resource_id, ip_address):
+def add(transaction, db_type, size, resource_id, ip_address, replica_ip=None):
     """
     Adds a resource with the given id to the pool corresponding to the given
     database type and size if it doesn't already exist.
@@ -70,10 +74,21 @@ def add(transaction, db_type, size, resource_id, ip_address):
         .collection("resources")
     )
     snapshot = pool_ref.document(resource_id).get(transaction=transaction)
+
+    connection_string = resource_id if db_type == CLOUD_SPANNER else ip_address
+
     if not snapshot.exists:
         resource_ref = pool_ref.document(resource_id)
+
         transaction.set(
-            resource_ref, {"expiry": time.time() - 10, "ip_address": ip_address}
+            resource_ref,
+            {
+                "expiry": time.time() - 10,
+                "connection_string": connection_string,
+                "replica_ip": replica_ip,
+                "status": "ready",
+                "database_type": DB_TYPES[db_type]
+            },
         )
     else:
         raise Exception(f"Resource {resource_id} already in pool")
@@ -141,9 +156,12 @@ async def lease_resource():
     response = {
         "resource_id": leased_resource.id,
         "expiration": leased_resource.get("expiry"),
+        "connection_string": leased_resource.get("connection_string"),
     }
-    if "cloud-sql" in DB_TYPES[req_data["database_type"]]:
-        response["ip_address"] = leased_resource.get("ip_address")
+
+    if req_data["database_type"] == CLOUD_SQL_READ_REPLICA:
+        response["replica_ip"] == leased_resource.get("replica_ip")
+
     return jsonify(response), 200
 
 
@@ -169,9 +187,9 @@ async def add_resource():
         return "Bad Request: Invalid resource_id", 400
 
     resource_id = req_data["resource_id"]
-    ip_address = None
-    if "ip_address" in req_data.keys():
-        ip_address = req_data["ip_address"]
+    ip_address = req_data["ip_address"] if "ip_address" in req_data.keys() else None
+    replica_ip = req_data["replica_ip"] if "replica_ip" in req_data.keys() else None
+    
     with db.transaction() as transaction:
         try:
             await add(
