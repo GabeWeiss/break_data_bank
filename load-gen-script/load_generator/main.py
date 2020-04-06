@@ -20,7 +20,7 @@ import time
 from typing import Awaitable, Callable, List
 import uuid
 import configargparse
-from . import cloud_sql, spanner
+from . import cloud_sql, spanner, read_replica
 from .pubsub import PublishQueue
 from .utils import AsyncOperation
 
@@ -94,11 +94,24 @@ async def generate_load(args: configargparse.Namespace):
             args.host, args.port, args.database, args.user, args.password
         )
         read = functools.partial(cloud_sql.read_operation, *op_args)
+
     elif args.target_type == CLOUD_SPANNER:
         op_args = await spanner.generate_transaction_args(args.instance, args.database)
         read = functools.partial(spanner.read_operation, *op_args)
         write = functools.partial(spanner.write_operation, *op_args)
 
+    elif args.target_type == CLOUD_SQL_REPLICA:
+        op_args = await read_replica.generate_transaction_args(
+            args.primary_host,
+            args.replica_host,
+            args.primary_port,
+            args.replica_port,
+            args.database,
+            args.user,
+            args.password,
+        )
+        read = functools.partial(read_replica.read_operation, *op_args)
+        write = functools.partial(read_replica.write_operation, *op_args)
 
     # Use pubsub to publish the results of each operation
     pub_queue = PublishQueue(args.pubsub_project, args.pubsub_topic)
@@ -166,6 +179,16 @@ def main():
 
     spanner_args = parser.add_argument_group("spanner arguments")
     spanner_args.add_argument("-i", "--instance", help="instance name")
+
+    read_replica_args = parser.add_argument_group("read replica arguments")
+    read_replica_args.add_argument(
+        "--primary_host", default="127.0.0.1", help="ip address for primary instance"
+    )
+    read_replica_args.add_argument(
+        "--replica_host", default="127.0.0.1", help="ip address for replica instance"
+    )
+    read_replica_args.add_argument("--primary_port", default=5432, type=int, help="instance port for primary instance")
+    read_replica_args.add_argument("--replica_port", default=5432, type=int, help="instance port for replica instance")
 
     args = parser.parse_args()
 
