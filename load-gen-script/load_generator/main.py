@@ -38,6 +38,7 @@ CLOUD_SQL = 1
 CLOUD_SQL_REPLICA = 2
 CLOUD_SPANNER = 3
 
+#TODO: set actual values
 LOAD_PATTERNS = {
     1:[(4, 10)],  # 4s @ 10 qps
     2:[(4, 20)],  # 4s @ 20 qps
