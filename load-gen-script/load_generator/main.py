@@ -33,9 +33,17 @@ TRAFFIC_LOW = 1
 TRAFFIC_HIGH = 2
 TRAFFIC_SPIKEY = 3
 
+
 CLOUD_SQL = 1
 CLOUD_SQL_REPLICA = 2
 CLOUD_SPANNER = 3
+
+#TODO: set actual values
+LOAD_PATTERNS = {
+    1:[(4, 10)],  # 4s @ 10 qps
+    2:[(4, 20)],  # 4s @ 20 qps
+    3:[(1, 10), (1, 60), (1, 30), (1, 60)] # spikey load
+}
 
 
 async def schedule_at(start_time: float, func: Callable[[], Awaitable]):
@@ -55,6 +63,13 @@ def schedule_segment(
         schedule_at(start_time + x * delta, func) for x in range(total_transactions)
     ]
 
+def schedule_load(load: List[tuple], cur_time: float, func: Callable[[], Awaitable], transactions: List[Awaitable]):
+    for seg in load:
+        # Schedule connections that occur in the segment
+        segment_load = schedule_segment(cur_time, seg[0], seg[1], func)
+        # Add the segment load to our list of scheduled connections
+        transactions.extend(segment_load)
+        cur_time += seg[0]
 
 def publish_results_from(
     pub_queue: PublishQueue, job_id: str, workload_id: str, operation: AsyncOperation
@@ -82,10 +97,9 @@ def publish_results_from(
 async def generate_load(args: configargparse.Namespace):
     job_id = str(uuid.uuid4())
 
-    # TODO(kvg): configurable load parameters
-    load = [
-        (3, 30),  # 3s @ 30 qps
-    ]
+    # Set load patterns for read / write transations
+    read_load = LOAD_PATTERNS[args.read_pattern]
+    write_load = LOAD_PATTERNS[args.write_pattern]
 
     # Set the read / write transactions to use
     read, write = None, None
@@ -123,14 +137,13 @@ async def generate_load(args: configargparse.Namespace):
     logger.info(f"Delaying load start until {args.delay_until} (~{delay:.4f}s)")
 
     # Schedule the transactions to start processing at the correct time
-    cur_time, start_time = args.delay_until, args.delay_until
+    start_time = args.delay_until
     transactions = []
-    for seg in load:
-        # Schedule connections that occur in the segment
-        segment_load = schedule_segment(cur_time, seg[0], seg[1], write)
-        # Add the segment load to our list of scheduled connections
-        transactions.extend(segment_load)
-        cur_time += seg[0]
+
+    # Schedule transactions for both read and write operations
+    schedule_load(read_load, args.delay_until, read, transactions)
+    schedule_load(write_load, args.delay_until, write, transactions)
+
     # Wait for all transactions to complete.
     await asyncio.gather(*transactions)
     end_time = asyncio.get_running_loop().time()
@@ -158,6 +171,21 @@ def main():
         type=int,
         choices=[CLOUD_SQL, CLOUD_SQL_REPLICA, CLOUD_SPANNER],
     )
+
+    parser.add_argument(
+        "--read-pattern",
+        required=True,
+        type=int,
+        choices=[TRAFFIC_LOW, TRAFFIC_HIGH, TRAFFIC_SPIKEY],
+    )
+
+    parser.add_argument(
+        "--write-pattern",
+        required=True,
+        type=int,
+        choices=[TRAFFIC_LOW, TRAFFIC_HIGH, TRAFFIC_SPIKEY],
+    )
+
     parser.add_argument("--pubsub_project", required=True, help="pubsub project id")
     parser.add_argument("--pubsub_topic", required=True, help="pubsub topic id")
 
