@@ -18,7 +18,7 @@ import asyncio
 from functools import wraps, partial
 
 DB_TYPES = {1: "cloud-sql", 2: "cloud-sql-read-replica", 3: "spanner"}
-DB_SIZES = {1: "1x", 2: "2x", 3: "3x"}
+DB_SIZES = {1: "1x", 2: "2x", 3: "4x"}
 
 
 def check_required_params(req, keys):
