@@ -184,6 +184,9 @@ async def add_resource():
     if not helpers.validate_resource_id(req_data["resource_id"]):
         return "Bad Request: Invalid resource_id", 400
 
+    if not helpers.validate_connection_string(req_data["database_type"], req_data["connection_string"], req_data["resource_id"]):
+        return "Bad Request: Invalid connection_string", 400
+
     replica_ip = req_data["replica_ip"] if "replica_ip" in req_data.keys() else None
     if not helpers.validate_replica_ip(req_data["database_type"], replica_ip):
         return "Bad Request: Replication servers require a replica_ip", 400

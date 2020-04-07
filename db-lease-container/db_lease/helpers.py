@@ -57,6 +57,17 @@ def validate_replica_ip(db_type, replica_ip):
         return False
     return True
 
+def validate_connection_string(db_type, connection_string, resource_id) :
+    # Type 3 is Spanner, so if we see a non-Spanner type instance,
+    # and we see something that ISN'T an IP address for the connection
+    # string, fail.
+    if db_type != 3 and re.match(r"[^0-9\.]+"):
+        return False
+    # For Spanner instances, the connection string IS the resource_id
+    elif db_type == 3 and resource_id != connection_string:
+        return False
+    return True
+
 def is_available(resource):
     """
     Helper to check if resource is available.
