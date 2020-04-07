@@ -172,23 +172,6 @@ if not build_helpers.create_spanner_instances(instance_names, spanner_region, po
 
 print("  Finished creating Cloud Spanner instances\n")
 
-#######################################
-## Insert DB metadata into Firestore ##
-#######################################
-
-print("Starting to add all database resource meta data to Firestore\n")
-
-if not build_helpers.initialize_firestore():
-    sys.exit(1)
-
-#if not build_helpers.set_sql_db_resources(instance_names):
-#    sys.exit(1)
-
-if not build_helpers.set_spanner_db_resources(instance_names):
-    sys.exit(1)
-
-print("  Finished adding all database resource metadata to Firestore\n")
-
 #################################
 ## Build and deploy containers ##
 #################################
@@ -234,6 +217,23 @@ print("Starting to deploy Cloud Run services. This will take a bit for each one\
 # to deploy automatically)
 
 print("  Finished deploying Cloud Run services\n")
+
+#######################################
+## Insert DB metadata into Firestore ##
+#######################################
+
+print("Starting to add all database resource meta data to Firestore\n")
+
+if not build_helpers.initialize_firestore():
+    sys.exit(1)
+
+#if not build_helpers.set_sql_db_resources(instance_names):
+#    sys.exit(1)
+
+#if not build_helpers.set_spanner_db_resources(instance_names):
+#    sys.exit(1)
+
+print("  Finished adding all database resource metadata to Firestore\n")
 
 ###################################
 ## Deploy the Kubernetes Cluster ##
