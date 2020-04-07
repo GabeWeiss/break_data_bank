@@ -25,11 +25,14 @@ _k8s_batch_client: client = None
 
 @base.before_app_first_request
 async def _init_client():
-    if app.config["ENV"] == "production":
-        try:
-            os.popen("gcloud container clusters get-credentials breaking-test --zone us-central1-c").read()
-        except:
-            print("Couldn't authenticate with cluster")
+    try:
+        if app.config["ENV"] == "production":
+            try:
+                os.popen("gcloud container clusters get-credentials breaking-test --zone us-central1-c").read()
+            except:
+                print("Couldn't authenticate with cluster")
+    except:
+        print("Appear to be running locally, so we don't need to authenticate with gcloud")
 
     global _k8s_batch_client
     config.load_kube_config()

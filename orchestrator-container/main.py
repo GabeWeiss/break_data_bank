@@ -37,6 +37,10 @@ app = Quart(__name__)
 
 # CHANGE THIS FOR FINAL PROD
 gDuration = 3 # represents the duration we're reserving an instance
+
+# URLs for the other two services TODO: make this dynamic
+#db_lease_url = "http://localhost:5001"
+#load_gen_url = "http://localhost:5002"
 db_lease_url = "https://breaking-db-lease-5gh6m2f5oq-uc.a.run.app/lease"
 load_gen_url = "https://breaking-load-service-5gh6m2f5oq-uc.a.run.app"
 
@@ -61,6 +65,7 @@ async def fetch_resource_id(db_type, db_size, duration):
     parameters = {'database_type':db_type,'database_size':db_size,'duration':duration}
     r = requests.post(url = db_lease_url, json = parameters)
     replica_ip = None
+    connection_string = None
     try:
         connection_string = json.loads(r.text)['connection_string']
         if db_type == CLOUD_SQL_REPLICA:
