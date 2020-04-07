@@ -105,19 +105,19 @@ async def generate_load(args: configargparse.Namespace):
     read, write = None, None
     if args.target_type == CLOUD_SQL:
         op_args = await cloud_sql.generate_transaction_args(
-            args.host, args.port, args.database, args.user, args.password
+            args.connection_string, args.primary_port, args.database, args.user, args.password
         )
         read = functools.partial(cloud_sql.read_operation, *op_args)
 
     elif args.target_type == CLOUD_SPANNER:
-        op_args = await spanner.generate_transaction_args(args.instance, args.database)
+        op_args = await spanner.generate_transaction_args(args.connection_string, args.database)
         read = functools.partial(spanner.read_operation, *op_args)
         write = functools.partial(spanner.write_operation, *op_args)
 
     elif args.target_type == CLOUD_SQL_REPLICA:
         op_args = await read_replica.generate_transaction_args(
-            args.primary_host,
-            args.replica_host,
+            args.connection_string,
+            args.replica_ip,
             args.primary_port,
             args.replica_port,
             args.database,
@@ -196,26 +196,22 @@ def main():
         type=float,
     )
     parser.add_argument("-d", "--database", help="database name")
+    
+    parser.add_argument(
+        "--connection_string", help="connection string. Cloud SQL will be an IP, Spanner will be a resource id"
+    )
+
+    parser.add_argument("--primary_port", default=5432, type=int, help="instance port for primary instance (Cloud SQL and Cloud SQL w/ replication")
 
     cloud_sql_args = parser.add_argument_group("cloud-sql arguments")
-    cloud_sql_args.add_argument(
-        "--host", default="127.0.0.1", help="instance ip address"
-    )
-    cloud_sql_args.add_argument("--port", default=5432, type=int, help="instance port")
+    
     cloud_sql_args.add_argument("-u", "--user", help="database user")
     cloud_sql_args.add_argument("-p", "--password", help="database user password")
 
-    spanner_args = parser.add_argument_group("spanner arguments")
-    spanner_args.add_argument("-i", "--instance", help="instance name")
-
     read_replica_args = parser.add_argument_group("read replica arguments")
     read_replica_args.add_argument(
-        "--primary_host", default="127.0.0.1", help="ip address for primary instance"
+        "--replica_ip", default="127.0.0.1", help="ip address for replica instance"
     )
-    read_replica_args.add_argument(
-        "--replica_host", default="127.0.0.1", help="ip address for replica instance"
-    )
-    read_replica_args.add_argument("--primary_port", default=5432, type=int, help="instance port for primary instance")
     read_replica_args.add_argument("--replica_port", default=5432, type=int, help="instance port for replica instance")
 
     args = parser.parse_args()
@@ -229,13 +225,13 @@ def main():
 
     # Validate Cloud SQL flags
     if args.target_type == CLOUD_SQL:
-        for flag in ["database", "user", "password"]:
+        for flag in ["database", "user", "password", "connection_string"]:
             if getattr(args, flag) is None:
                 parser.exit(1, f"--{flag} is required for cloud-sql targets\n")
 
     # Validate Spanner flags
     if args.target_type == CLOUD_SPANNER:
-        for flag in ["database", "instance"]:
+        for flag in ["database", "connection_string"]:
             if getattr(args, flag) is None:
                 parser.exit(1, f"--{flag} is required for spanner targets\n")
 

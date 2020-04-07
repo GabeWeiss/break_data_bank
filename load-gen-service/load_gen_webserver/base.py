@@ -42,20 +42,23 @@ async def index():
 
 
 def load_gen_container(
-    resource_id: str, job_id: str, database_type: int, cloud_sql_ip: str = None,
+    connection_string: str, job_id: str, database_type: int, replica_ip: str = None, read_pattern: int, write_pattern: int,
 ) -> client.V1Container:
     args = [
         f"--workload-id={job_id}",
         f"--target-type={database_type}",
+        f"--connection_string={connection_string}",
         f"--database={app.config['DB_NAME']}",
         f"--user={app.config['DB_USER']}",
         f"--password={app.config['DB_PASSWORD']}",
         f"--pubsub_project={app.config['PUBSUB_PROJECT']}",
         f"--pubsub_topic={app.config['PUBSUB_TOPIC']}",
+        f"--read-pattern={read_pattern}",
+        f"--write-pattern={write_pattern}"
     ]
 
-    if cloud_sql_ip:
-        args.append(f"--host={cloud_sql_ip}")
+    if replica_ip:
+        args.append(f"--replica_ip={replica_ip}")
 
     return client.V1Container(
         name="load-gen",
@@ -70,12 +73,19 @@ async def create_load_gen_job():
 
     # TODO: add better validation
     job_id = data["job_id"]
-    resource_id = data["resource_id"]
     database_type = data["database_type"]
-    # read_pattern = data["read_pattern"]
-    # write_pattern = data["write_pattern"]
+    connection_string = data["connection_string"]
+    read_pattern = data["read_pattern"]
+    write_pattern = data["write_pattern"]
     intensity = data["intensity"]
-    cloud_sql_ip = data.get("cloud_sql_ip")
+
+    replica_ip = None
+    try:
+        if database_type == 2: # Cloud SQL w/ replication
+            replica_ip = data["replica_ip"]
+    except:
+        return "Missing a replica IP address for a replica SQL type", 400
+
 
     job = client.V1Job(
         api_version="batch/v1",
@@ -94,7 +104,12 @@ async def create_load_gen_job():
                     service_account_name=f"{app.config['CONTAINER_KSA']}",
                     containers=[
                         load_gen_container(
-                            resource_id, job_id, database_type, cloud_sql_ip
+                            connection_string,
+                            job_id,
+                            database_type,
+                            replica_ip,
+                            read_pattern,
+                            write_pattern
                         )
                     ],
                 )

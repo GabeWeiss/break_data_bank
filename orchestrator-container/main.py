@@ -60,22 +60,27 @@ async def index():
 async def fetch_resource_id(db_type, db_size, duration):
     parameters = {'database_type':db_type,'database_size':db_size,'duration':duration}
     r = requests.post(url = db_lease_url, json = parameters)
+    resource_id = None
+    replica_ip = None
     try:
-        resource_id = json.loads(r.text)['resource_id']
+        connection_string = json.loads(r.text)['connection_string']
+        if db_type == CLOUD_SQL_REPLICA:
+            replica_ip = json.loads(r.text)['replica_ip']
     except:
-        resource_id = -1
-    return resource_id
+        print("")
 
-async def do_run(resource_id, job_id, db_type,
+    return resource_id, replica_ip
+
+async def do_run(connection_string, replica_ip, job_id, db_type,
                  read_pattern, read_intensity,
                  write_pattern, write_intensity):
     parameters = {"job_id":job_id,
-                  "resource_id":resource_id,
+                  "connection_string":connection_string,
                   "database_type":db_type,
                   "read_pattern":read_pattern,
                   "write_pattern":write_pattern,
                   "intensity":read_intensity,
-                  "cloud_sql_ip":resource_id
+                  "replica_ip":replica_ip
                   }
     r = requests.post(url = load_gen_url, json = parameters)
     return r
@@ -132,12 +137,15 @@ async def fail():
     if jobs_id == -1:
         return "Unable to create a load job.", 503
 
-    resource_id = await fetch_resource_id(CLOUD_SQL, 1, gDuration)
-    if resource_id == -1:
+    connection_string, replica_ip = await fetch_resource_id(CLOUD_SQL, 1, gDuration)
+    if connection_string == -1:
         return "Unable to fetch an available database resource.", 503
-
+    
         # Starting up load gen!
-    run_result = await do_run(resource_id, jobs_id, CLOUD_SQL,
+    run_result = await do_run(connection_string,
+                              replica_ip,
+                              jobs_id,
+                              CLOUD_SQL,
                               read_pattern, 3,
                               write_pattern, 3)
     print(run_result)
