@@ -51,6 +51,11 @@ def validate_db_type(db_type):
     """
     return db_type in DB_TYPES.keys()
 
+def validate_replica_ip(db_type, replica_ip):
+    # Type 2 is Cloud SQL with replication
+    if db_type == 2 and replica_ip == None:
+        return False
+    return True
 
 def is_available(resource):
     """
