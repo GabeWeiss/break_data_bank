@@ -42,7 +42,7 @@ async def index():
 
 
 def load_gen_container(
-    connection_string: str, job_id: str, database_type: int, replica_ip: str = None, read_pattern: int, write_pattern: int,
+    connection_string: str, job_id: str, database_type: int, read_pattern: int, write_pattern: int, replica_ip: str = None,
 ) -> client.V1Container:
     args = [
         f"--workload-id={job_id}",
@@ -107,9 +107,9 @@ async def create_load_gen_job():
                             connection_string,
                             job_id,
                             database_type,
-                            replica_ip,
                             read_pattern,
-                            write_pattern
+                            write_pattern,
+                            replica_ip
                         )
                     ],
                 )
