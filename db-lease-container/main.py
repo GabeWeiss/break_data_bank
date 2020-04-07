@@ -87,7 +87,7 @@ def add(transaction, db_type, size, resource_id, ip_address, replica_ip=None):
                 "connection_string": connection_string,
                 "replica_ip": replica_ip,
                 "status": "ready",
-                "database_type": DB_TYPES[db_type]
+                "database_type": DB_TYPES[db_type],
             },
         )
     else:
@@ -189,7 +189,7 @@ async def add_resource():
     resource_id = req_data["resource_id"]
     ip_address = req_data["ip_address"] if "ip_address" in req_data.keys() else None
     replica_ip = req_data["replica_ip"] if "replica_ip" in req_data.keys() else None
-    
+
     with db.transaction() as transaction:
         try:
             await add(

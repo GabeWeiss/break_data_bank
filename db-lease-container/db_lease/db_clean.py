@@ -123,7 +123,18 @@ async def loop_clean_instances(
     Periodically iterates through all expired resources which are unavailable
     and clears all tables.
     """
+    retry_seconds = DB_CLEANUP_INTERVAL
     while event.is_set():
         await asyncio.sleep(interval)
-        await clean_instances(db, logger)
+        if retry_seconds < 120:
+            try:
+                await clean_instances(db, logger)
+            except Exception:
+                logger.exception("An error occured while clearing databases:")
+                retry_seconds *= 2
+                if retry_seconds < 120:
+                    logger.warning(f"Will retry in {retry_seconds} seconds")
+            else:
+                # if a successful operation occurs, reset exponential backoff
+                retry_seconds = DB_CLEANUP_INTERVAL
     event.set()

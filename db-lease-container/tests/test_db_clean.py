@@ -23,9 +23,8 @@ def add_cloudsql_instance(test_db):
         {
             "expiry": time.time() - 10,
             "status": "ready",
-            "connection_string":"127.0.0.1",
+            "connection_string": "127.0.0.1",
             "database_type": "cloud-sql",
-            "database_size": "1x",
         }
     )
 
