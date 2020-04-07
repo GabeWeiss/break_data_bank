@@ -1,8 +1,10 @@
 import asyncio
 import asyncpg
+import functools
 import logging
 import os
 import time
+from typing import Callable
 
 from google.cloud import firestore
 from google.cloud import spanner
@@ -19,6 +21,7 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 # Change this to adjust how often the DB cleanup happens
 DB_CLEANUP_INTERVAL = 1
+MAX_RETRY_SECONDS = 120
 
 
 @run_function_as_async
@@ -97,9 +100,17 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
         await conn.close()
 
 
+async def reset_resource(
+    db: firestore.Client, db_type: str, db_size: str, resource_id: str, func: Callable,
+):
+    await func()
+    await set_status_to_ready(db, db_type, db_size, resource_id)
+
+
 async def clean_instances(db: firestore.Client, logger: logging.Logger):
     try:
         resources = await get_expired_resouces(db)
+        tasks = []
         for resource in resources:
             db_type = resource.get("database_type")
             db_size = resource.reference.parent.parent.id
@@ -107,8 +118,12 @@ async def clean_instances(db: firestore.Client, logger: logging.Logger):
                 "spanner": clean_spanner_instance,
                 "cloud-sql": clean_cloud_sql_instance,
             }[db_type]
-            await clean_func(resource.id, logger)
-            await set_status_to_ready(db, db_type, db_size, resource.id)
+            clean_partial = functools.partial(clean_func, resource.id, logger)
+            tasks.append(
+                reset_resource(db, db_type, db_size, resource.id, clean_partial)
+            )
+        asyncio.gather(*tasks)
+
     except Exception:
         logger.exception("An error occured while clearing databases:")
 
@@ -126,13 +141,13 @@ async def loop_clean_instances(
     retry_seconds = DB_CLEANUP_INTERVAL
     while event.is_set():
         await asyncio.sleep(interval)
-        if retry_seconds < 120:
+        if retry_seconds < MAX_RETRY_SECONDS:
             try:
                 await clean_instances(db, logger)
             except Exception:
                 logger.exception("An error occured while clearing databases:")
                 retry_seconds *= 2
-                if retry_seconds < 120:
+                if retry_seconds < MAX_RETRY_SECONDS:
                     logger.warning(f"Will retry in {retry_seconds} seconds")
             else:
                 # if a successful operation occurs, reset exponential backoff
