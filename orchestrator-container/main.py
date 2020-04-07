@@ -60,7 +60,6 @@ async def index():
 async def fetch_resource_id(db_type, db_size, duration):
     parameters = {'database_type':db_type,'database_size':db_size,'duration':duration}
     r = requests.post(url = db_lease_url, json = parameters)
-    resource_id = None
     replica_ip = None
     try:
         connection_string = json.loads(r.text)['connection_string']
@@ -69,7 +68,7 @@ async def fetch_resource_id(db_type, db_size, duration):
     except:
         print("")
 
-    return resource_id, replica_ip
+    return connection_string, replica_ip
 
 async def do_run(connection_string, replica_ip, job_id, db_type,
                  read_pattern, read_intensity,
