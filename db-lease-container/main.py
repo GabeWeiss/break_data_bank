@@ -107,6 +107,11 @@ async def clear_databases():
 async def stop_cleanup_task():
     app.cleanup_event.clear()
     await app.cleanup_event.wait()
+    # await cancellation of all retry tasks
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 @app.route("/isitworking", methods=["GET"])
@@ -198,6 +203,7 @@ async def add_resource():
                 req_data["database_size"],
                 resource_id,
                 ip_address,
+                replica_ip,
             )
             return f"Successfully added resource {resource_id} to pool", 200
         except Exception:

@@ -135,8 +135,8 @@ def create_task(resource, db, logger):
     return reset_resource
 
 
-async def retry(db, resources, logger, event, interval=DB_CLEANUP_INTERVAL):
-    while event.is_set() and resources:
+async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
+    while resources:
         if interval < MAX_RETRY_SECONDS:
             interval *= 2
         await asyncio.sleep(interval)
@@ -163,7 +163,7 @@ async def retry(db, resources, logger, event, interval=DB_CLEANUP_INTERVAL):
         resources = retry_resources
 
 
-async def clean_instances(db: firestore.Client, logger: logging.Logger, event):
+async def clean_instances(db: firestore.Client, logger: logging.Logger):
     resources = await get_expired_resouces(db)
     tasks = []
     for resource in resources:
@@ -179,7 +179,7 @@ async def clean_instances(db: firestore.Client, logger: logging.Logger, event):
             await set_status_to_down(db, db_type, db_size, resource.id)
             retry_resources.append(resource)
     loop = asyncio.get_event_loop()
-    loop.create_task(retry(db, retry_resources, logger, event))
+    loop.create_task(retry(db, retry_resources, logger))
 
 
 async def loop_clean_instances(
@@ -194,5 +194,5 @@ async def loop_clean_instances(
     """
     while event.is_set():
         await asyncio.sleep(interval)
-        await clean_instances(db, logger, event)
+        await clean_instances(db, logger)
     event.set()
