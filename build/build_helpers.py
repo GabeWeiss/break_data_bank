@@ -503,6 +503,13 @@ def deploy_run_services(service_account, region, project_id, version):
     print("")
     return True
 
+def get_orchestrator_url():
+    proc = subprocess.run(["gcloud run services list --platform=managed | grep breaking-orchestrator"], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return None
+    url = proc.stdout.split()[3]
+    return url
+
 def deploy_k8s(region, project, vpc):
     k8s_name = "breaking-cluster"
 
