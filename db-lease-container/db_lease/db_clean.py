@@ -73,9 +73,8 @@ def set_status_to_down(
         .document(db_size)
         .collection("resources")
     )
-    breakpoint()
     pool_ref.document(resource_id).update({"status": "down"})
-    
+
 
 @run_function_as_async
 def clean_spanner_instance(resource_id: str, logger: logging.Logger):
@@ -130,17 +129,17 @@ def create_task(resource, db, logger):
     }[db_type]
 
     async def reset_resource():
-        try:
-            await clean_func(resource.id, logger)
-            await set_status_to_ready(db, db_type, db_size, resource.id)
+        await clean_func(resource.id, logger)
+        await set_status_to_ready(db, db_type, db_size, resource.id)
 
     return reset_resource
 
 
-async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
-    retry_seconds = interval
-    while resources:
-        await asyncio.sleep(retry_seconds)
+async def retry(db, resources, logger, event, interval=DB_CLEANUP_INTERVAL):
+    while event.is_set() and resources:
+        if interval < MAX_RETRY_SECONDS:
+            interval *= 2
+        await asyncio.sleep(interval)
 
         tasks = []
         for resource in resources:
@@ -153,10 +152,8 @@ async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
         for resource, result in zip(resources, results):
             if isinstance(result, Exception):
                 # if fail
-                logger.error(
-                    f"Failed to reset resource {resource.id,}. Will retry in {retry_seconds}s",
-                    exc_info=result,
-                )
+                log_msg = f"Failed to reset resource {resource.id,}. Will retry in {interval}s"
+                logger.error(log_msg, exc_info=result)
                 retry_resources.append(resource)
             else:
                 # if success, set status to ready so it can go back in the pool
@@ -164,11 +161,9 @@ async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
                 db_size = resource.reference.parent.parent.id
                 await set_status_to_ready(db, db_type, db_size, resource.id)
         resources = retry_resources
-        if retry_seconds < MAX_RETRY_SECONDS:
-            retry_seconds *= 2
 
 
-async def clean_instances(db: firestore.Client, logger: logging.Logger):
+async def clean_instances(db: firestore.Client, logger: logging.Logger, event):
     resources = await get_expired_resouces(db)
     tasks = []
     for resource in resources:
@@ -181,14 +176,10 @@ async def clean_instances(db: firestore.Client, logger: logging.Logger):
         db_type = resource.get("database_type")
         db_size = resource.reference.parent.parent.id
         if isinstance(result, Exception):
-            logger.error(
-                f"Failed to reset resource {resource.id}. Will retry in {DB_CLEANUP_INTERVAL}s",
-                exc_info=result,
-            )
             await set_status_to_down(db, db_type, db_size, resource.id)
             retry_resources.append(resource)
-            
-    await retry(db, retry_resources, logger)
+    loop = asyncio.get_event_loop()
+    loop.create_task(retry(db, retry_resources, logger, event))
 
 
 async def loop_clean_instances(
@@ -203,5 +194,5 @@ async def loop_clean_instances(
     """
     while event.is_set():
         await asyncio.sleep(interval)
-        await clean_instances(db, logger)
+        await clean_instances(db, logger, event)
     event.set()
