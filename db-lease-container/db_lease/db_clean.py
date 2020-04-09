@@ -47,7 +47,7 @@ def get_expired_resouces(db: firestore.Client):
     return resources
 
 @run_function_as_async
-def get_down_resouces(db: firestore.Client):
+def get_down_resources(db: firestore.Client):
     """
     Queries Firestore for all resources that are expired, but not ready
     to return to the pool
