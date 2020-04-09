@@ -175,8 +175,7 @@ async def clean_instances(db: firestore.Client, logger: logging.Logger):
         if isinstance(result, Exception):
             await set_status_to_down(db, db_type, db_size, resource.id)
             retry_resources.append(resource)
-    loop = asyncio.get_event_loop()
-    loop.create_task(retry(db, retry_resources, logger))
+    asyncio.create_task(retry(db, retry_resources, logger))
 
 
 async def loop_clean_instances(
