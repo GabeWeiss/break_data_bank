@@ -165,10 +165,7 @@ async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
 
 async def clean_instances(db: firestore.Client, logger: logging.Logger):
     resources = await get_expired_resouces(db)
-    tasks = []
-    for resource in resources:
-        task = create_task(resource, db, logger)
-        tasks.append(task())
+    tasks = [ create_task(resource, db, logger)() for r in resources ]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     retry_resources = []
