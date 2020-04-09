@@ -42,11 +42,23 @@ def get_expired_resouces(db: firestore.Client):
         .where("expiry", "<", time.time())
         .where("status", "==", "leased")
     )
-    resources = []
-    for resource in query.stream():
-        resources.append(resource)
+    resources = [r for r in query.stream()]
+
     return resources
 
+@run_function_as_async
+def get_down_resouces(db: firestore.Client):
+    """
+    Queries Firestore for all resources that are expired, but not ready
+    to return to the pool
+    """
+
+    query = (
+        db.collection_group("resources")
+        .where("status", "==", "down")
+    )
+    resources = [r for r in query.stream()]
+    return resources
 
 @run_function_as_async
 def set_status_to_ready(
@@ -132,7 +144,7 @@ def create_task(resource, db, logger):
         await clean_func(resource.id, logger)
         await set_status_to_ready(db, db_type, db_size, resource.id)
 
-    return reset_resource
+    return reset_resource()
 
 
 async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
@@ -144,7 +156,7 @@ async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
         tasks = []
         for resource in resources:
             task = create_task(resource, db, logger)
-            tasks.append(task())
+            tasks.append(task)
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
