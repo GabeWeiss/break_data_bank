@@ -120,9 +120,9 @@ print("  Successfully created our service account\n")
 
 print("Creating new VPC network")
 
-#vpc_name = build_helpers.create_vpc()
-#if vpc_name == None:
-#    sys.exit(1)
+vpc_name = build_helpers.create_vpc()
+if vpc_name == None:
+    sys.exit(1)
 
 print("  Successfully created VPC\n")
 
@@ -141,7 +141,7 @@ print("  Successfully created Pub/Sub topic\n")
 ## Create Database instances ##
 ###############################
 
-db_name_version = "06"
+db_name_version = "00"
 instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
 
 # Cloud SQL
@@ -151,14 +151,15 @@ print("Starting to create Cloud SQL instances (This takes awhile, don't panic)\n
 vm_cpus = [ "1", "4", "16" ]
 vm_ram = [ "1GiB", "4GiB", "16GiB" ]
 
-#if not build_helpers.create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names):
-#    sys.exit(1)
+if not build_helpers.create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc_name):
+    sys.exit(1)
 
 print("  Finished creating Cloud SQL instances\n")
 
 print("Starting to create Cloud SQL w/ replica instances (another big wait incoming\n")
 
-# TODO: Create Cloud SQL w/ replica instances
+if not build_helpers.create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc_name):
+    sys.exit(1)
 
 print ("  Finished creating Cloud SQL w/ replica instances\n")
 
@@ -212,9 +213,9 @@ print("Starting to deploy Cloud Run services. This will take a bit for each one\
 #    sys.exit(1)
 
 # Ultimately we need this for the end-user of the demo
-orchestrator_url = build_helpers.get_orchestrator_url()
-if orchestrator_url == None:
-    sys.exit(1)
+#orchestrator_url = build_helpers.get_orchestrator_url()
+#if orchestrator_url == None:
+#    sys.exit(1)
 
 print("  Finished deploying Cloud Run services\n")
 
