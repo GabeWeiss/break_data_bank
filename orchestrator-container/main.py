@@ -18,6 +18,7 @@ import time
 
 import asyncio
 from quart import Quart, websocket, jsonify, request
+import quart_cors
 import requests
 
 import firebase_admin
@@ -34,6 +35,7 @@ CLOUD_SQL_REPLICA = 2
 CLOUD_SPANNER     = 3
 
 app = Quart(__name__)
+app = quart_cors.cors(app, allow_origin=["https://p-511-gcloud-dataservices-dev.appspot.com/","https://p-511-gcloud-dataservices-stg.appspot.com/","https://dplex-n20-breaking-databank.appspot.com","https://localhost:4200"])
 
 # CHANGE THIS FOR FINAL PROD
 gDuration = 3 # represents the duration we're reserving an instance
@@ -252,7 +254,7 @@ async def cached():
             sql_size = int(form["sql_size"])
             sql_rep_size = int(form["sql_rep_size"])
             spanner_size = int(form["spanner_size"])
-            return "{{ \"job_ids\": [\"sql-{}-{}\", \"sql-rep-{}-{}\", \"spanner-{}-{}\"] }}".format(sql_size, intensity, sql_rep_size, intensity, spanner_size, intensity), 200
+            return "{{ \"job_ids\": [\"sql-{}-{}\", \"sqlrep-{}-{}\", \"spanner-{}-{}\"] }}".format(sql_size, intensity, sql_rep_size, intensity, spanner_size, intensity), 200
         except: 
             return "\nMissing required parameters:\n 'read_pattern'\n 'write_pattern'\n 'intensity'\n 'sql_size'\n 'sql_rep_size'\n 'spanner_size'\nEnsure you have them in your POST method.\n\n", 400
 

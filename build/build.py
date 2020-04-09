@@ -141,7 +141,7 @@ print("  Successfully created Pub/Sub topic\n")
 ## Create Database instances ##
 ###############################
 
-db_name_version = "00"
+db_name_version = "01"
 instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
 
 # Cloud SQL
