@@ -59,3 +59,45 @@ async def test_cloud_sql_instance_is_cleaned(
 
         snapshot = pool_ref.document(resource_id).get()
         assert snapshot.get("status") == "ready"
+
+
+@pytest.mark.asyncio
+async def test_retry(app, test_db, add_cloudsql_instance, cleanup_db, caplog):
+    client = app.test_client()
+    test_data = {"database_type": 1, "database_size": 1, "duration": 3}
+    headers = {"Content-Type": "application/json"}
+
+    mock_clean_cloud_sql = mock.Mock(side_effect=Exception("Connection error"))
+    with mock.patch("main.db", test_db), mock.patch(
+        "db_lease.db_clean.clean_cloud_sql_instance", mock_clean_cloud_sql
+    ), caplog.at_level(logging.ERROR):
+        response = await client.post(
+            "/lease", data=json.dumps(test_data), headers=headers
+        )
+        resource_id = (await response.get_json())["resource_id"]
+        pool_ref = (
+            test_db.collection("db_resources")
+            .document("cloud-sql")
+            .collection("sizes")
+            .document("1x")
+            .collection("resources")
+        )
+        snapshot = pool_ref.document(resource_id).get()
+        assert snapshot.get("status") == "leased"
+
+        await asyncio.sleep(20)
+
+        assert "Will retry in 2s" in caplog.text
+        assert "Will retry in 4s" in caplog.text
+        assert "Will retry in 8s" in caplog.text
+
+    pool_ref = (
+        test_db.collection("db_resources")
+        .document("cloud-sql")
+        .collection("sizes")
+        .document("1x")
+        .collection("resources")
+    )
+
+    snapshot = pool_ref.document(resource_id).get()
+    assert snapshot.get("status") == "down"

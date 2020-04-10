@@ -98,6 +98,8 @@ async def clear_databases():
     app.cleanup_event = asyncio.Event()
     loop = asyncio.get_event_loop()
     app.cleanup_event.set()
+    resources = await db_clean.get_down_resouces()
+    loop.create_task(db_clean.retry(db, resources, app.logger))
     loop.create_task(db_clean.loop_clean_instances(db, app.logger, app.cleanup_event))
 
 
@@ -105,6 +107,11 @@ async def clear_databases():
 async def stop_cleanup_task():
     app.cleanup_event.clear()
     await app.cleanup_event.wait()
+    # await cancellation of all retry tasks
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 @app.route("/isitworking", methods=["GET"])
