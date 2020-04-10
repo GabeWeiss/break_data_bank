@@ -18,6 +18,7 @@ import time
 
 import asyncio
 from quart import Quart, websocket, jsonify, request
+import quart_cors
 import requests
 
 import firebase_admin
@@ -34,9 +35,14 @@ CLOUD_SQL_REPLICA = 2
 CLOUD_SPANNER     = 3
 
 app = Quart(__name__)
+app = quart_cors.cors(app, allow_origin=["https://p-511-gcloud-dataservices-dev.appspot.com","https://p-511-gcloud-dataservices-stg.appspot.com","https://dplex-n20-breaking-databank.appspot.com","https://localhost:4200"])
 
 # CHANGE THIS FOR FINAL PROD
 gDuration = 3 # represents the duration we're reserving an instance
+
+# URLs for the other two services TODO: make this dynamic
+#db_lease_url = "http://localhost:5001"
+#load_gen_url = "http://localhost:5002"
 db_lease_url = "https://breaking-db-lease-5gh6m2f5oq-uc.a.run.app/lease"
 load_gen_url = "https://breaking-load-service-5gh6m2f5oq-uc.a.run.app"
 
@@ -54,28 +60,34 @@ async def index():
             <li>test</li>
             <li>fail</li>
             <li>run</li>
+            <li>cached</li>
         </ul>
     </body></html>"""
 
 async def fetch_resource_id(db_type, db_size, duration):
     parameters = {'database_type':db_type,'database_size':db_size,'duration':duration}
     r = requests.post(url = db_lease_url, json = parameters)
+    replica_ip = None
+    connection_string = None
     try:
-        resource_id = json.loads(r.text)['resource_id']
+        connection_string = json.loads(r.text)['connection_string']
+        if db_type == CLOUD_SQL_REPLICA:
+            replica_ip = json.loads(r.text)['replica_ip']
     except:
-        resource_id = -1
-    return resource_id
+        print("")
 
-async def do_run(resource_id, job_id, db_type,
+    return connection_string, replica_ip
+
+async def do_run(connection_string, replica_ip, job_id, db_type,
                  read_pattern, read_intensity,
                  write_pattern, write_intensity):
     parameters = {"job_id":job_id,
-                  "resource_id":resource_id,
+                  "connection_string":connection_string,
                   "database_type":db_type,
                   "read_pattern":read_pattern,
                   "write_pattern":write_pattern,
                   "intensity":read_intensity,
-                  "cloud_sql_ip":resource_id
+                  "replica_ip":replica_ip
                   }
     r = requests.post(url = load_gen_url, json = parameters)
     return r
@@ -132,12 +144,15 @@ async def fail():
     if jobs_id == -1:
         return "Unable to create a load job.", 503
 
-    resource_id = await fetch_resource_id(CLOUD_SQL, 1, gDuration)
-    if resource_id == -1:
+    connection_string, replica_ip = await fetch_resource_id(CLOUD_SQL, 1, gDuration)
+    if connection_string == -1:
         return "Unable to fetch an available database resource.", 503
-
+    
         # Starting up load gen!
-    run_result = await do_run(resource_id, jobs_id, CLOUD_SQL,
+    run_result = await do_run(connection_string,
+                              replica_ip,
+                              jobs_id,
+                              CLOUD_SQL,
                               read_pattern, 3,
                               write_pattern, 3)
     print(run_result)
@@ -181,7 +196,7 @@ async def run():
                                      int(intensity))
                 )
     jobs_len = len(job_ids)
-    if jobs_len < 1:
+    if jobs_len < 3:
         return "Unable to create load jobs.", 503
 
     resource_ids = []
@@ -240,7 +255,7 @@ async def cached():
             sql_size = int(form["sql_size"])
             sql_rep_size = int(form["sql_rep_size"])
             spanner_size = int(form["spanner_size"])
-            return "{{ \"job_ids\": [\"sql-{}-{}\", \"sql-rep-{}-{}\", \"spanner-{}-{}\"] }}".format(sql_size, intensity, sql_rep_size, intensity, spanner_size, intensity), 200
+            return "{{ \"job_ids\": [\"sql-{}-{}\", \"sqlrep-{}-{}\", \"spanner-{}-{}\"] }}".format(sql_size, intensity, sql_rep_size, intensity, spanner_size, intensity), 200
         except: 
             return "\nMissing required parameters:\n 'read_pattern'\n 'write_pattern'\n 'intensity'\n 'sql_size'\n 'sql_rep_size'\n 'spanner_size'\nEnsure you have them in your POST method.\n\n", 400
 

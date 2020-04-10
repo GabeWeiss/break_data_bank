@@ -1,4 +1,5 @@
 google-cloud-firestore==1.6.2
 firebase-admin==4.0.0
-Quart==0.6.15
-Hypercorn==0.5.4
+Quart==0.11.5
+Hypercorn==0.7.0
+Quart-CORS==0.3.0

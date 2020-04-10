@@ -16,3 +16,5 @@ load-gen-script/config.yaml
 load-gen-script/service-account.yaml
 load-gen-service/config.yaml
 *.json
+
+cloud_sql_proxy

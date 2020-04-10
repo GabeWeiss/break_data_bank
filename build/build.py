@@ -108,9 +108,9 @@ print("  Successfully enabled all required services\n")
 
 print("Creating and fetching service account (Note, you'll get an email about downloading a service key if you haven't downloaded it yet)")
 
-service_account = build_helpers.create_service_account(project_id)
-if service_account == None:
-    sys.exit(1)
+#service_account = build_helpers.create_service_account(project_id)
+#if service_account == None:
+#    sys.exit(1)
 
 print("  Successfully created our service account\n")
 
@@ -120,9 +120,9 @@ print("  Successfully created our service account\n")
 
 print("Creating new VPC network")
 
-#vpc_name = build_helpers.create_vpc()
-#if vpc_name == None:
-#    sys.exit(1)
+vpc_name = build_helpers.create_vpc()
+if vpc_name == None:
+    sys.exit(1)
 
 print("  Successfully created VPC\n")
 
@@ -141,7 +141,7 @@ print("  Successfully created Pub/Sub topic\n")
 ## Create Database instances ##
 ###############################
 
-db_name_version = "06"
+db_name_version = "01"
 instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
 
 # Cloud SQL
@@ -151,14 +151,15 @@ print("Starting to create Cloud SQL instances (This takes awhile, don't panic)\n
 vm_cpus = [ "1", "4", "16" ]
 vm_ram = [ "1GiB", "4GiB", "16GiB" ]
 
-#if not build_helpers.create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names):
-#    sys.exit(1)
+if not build_helpers.create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc_name):
+    sys.exit(1)
 
 print("  Finished creating Cloud SQL instances\n")
 
 print("Starting to create Cloud SQL w/ replica instances (another big wait incoming\n")
 
-# TODO: Create Cloud SQL w/ replica instances
+if not build_helpers.create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc_name):
+    sys.exit(1)
 
 print ("  Finished creating Cloud SQL w/ replica instances\n")
 
@@ -167,27 +168,10 @@ print("Starting to create Cloud Spanner instances\n")
 power_unit = [ "1", "4", "10" ]
 spanner_descriptions = [ "Breaking Small{}".format(db_name_version), "Breaking Medium{}".format(db_name_version), "Breaking Large{}".format(db_name_version) ]
 
-if not build_helpers.create_spanner_instances(instance_names, spanner_region, power_unit, spanner_descriptions):
-    sys.exit(1)
-
-print("  Finished creating Cloud Spanner instances\n")
-
-#######################################
-## Insert DB metadata into Firestore ##
-#######################################
-
-print("Starting to add all database resource meta data to Firestore\n")
-
-if not build_helpers.initialize_firestore():
-    sys.exit(1)
-
-#if not build_helpers.set_sql_db_resources(instance_names):
+#if not build_helpers.create_spanner_instances(instance_names, spanner_region, power_unit, spanner_descriptions):
 #    sys.exit(1)
 
-if not build_helpers.set_spanner_db_resources(instance_names):
-    sys.exit(1)
-
-print("  Finished adding all database resource metadata to Firestore\n")
+print("  Finished creating Cloud Spanner instances\n")
 
 #################################
 ## Build and deploy containers ##
@@ -228,12 +212,29 @@ print("Starting to deploy Cloud Run services. This will take a bit for each one\
 #if not build_helpers.deploy_run_services(service_account, sql_region, project_id, args.version):
 #    sys.exit(1)
 
-# TODO: Fetch the URL for the orchestrator Cloud Run instance so
-# we can print it out at the end for the demo-runner with instructions
-# on running (curl to keep it simple, until we have the front-end also
-# to deploy automatically)
+# Ultimately we need this for the end-user of the demo
+#orchestrator_url = build_helpers.get_orchestrator_url()
+#if orchestrator_url == None:
+#    sys.exit(1)
 
 print("  Finished deploying Cloud Run services\n")
+
+#######################################
+## Insert DB metadata into Firestore ##
+#######################################
+
+print("Starting to add all database resource meta data to Firestore\n")
+
+#if not build_helpers.initialize_firestore():
+#    sys.exit(1)
+
+#if not build_helpers.set_sql_db_resources(instance_names):
+#    sys.exit(1)
+
+#if not build_helpers.set_spanner_db_resources(instance_names):
+#    sys.exit(1)
+
+print("  Finished adding all database resource metadata to Firestore\n")
 
 ###################################
 ## Deploy the Kubernetes Cluster ##

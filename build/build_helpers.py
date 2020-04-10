@@ -50,7 +50,7 @@ def auth_docker():
     return True
 
 def enable_services():
-    services_process = subprocess.run(["gcloud services enable run.googleapis.com iam.googleapis.com sqladmin.googleapis.com container.googleapis.com firestore.googleapis.com pubsub.googleapis.com dataflow.googleapis.com containerregistry.googleapis.com spanner.googleapis.com sql-component.googleapis.com storage-component.googleapis.com"], shell=True, capture_output=True, text=True)
+    services_process = subprocess.run(["gcloud services enable run.googleapis.com iam.googleapis.com sqladmin.googleapis.com container.googleapis.com firestore.googleapis.com pubsub.googleapis.com dataflow.googleapis.com containerregistry.googleapis.com spanner.googleapis.com sql-component.googleapis.com storage-component.googleapis.com servicenetworking.googleapis.com"], shell=True, capture_output=True, text=True)
     if services_process.returncode != 0:
         print("There was a problem enabling GCP services")
         print(services_process.stderr)
@@ -120,6 +120,21 @@ def create_vpc():
             return None
         else:
             print("WARNING: The VPC was already created. Beware the GKE cluster may fail to create later\n")
+    allocation_name = "breaking"
+    proc = subprocess.run(["gcloud compute addresses create {} --global --purpose=VPC_PEERING --prefix-length=24 --network={}".format(allocation_name, vpc_name)], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        err = proc.stderr
+        print("Wasn't able to allocate private IPs for your VPC network")
+        print(err)
+        return None
+    
+    proc = subprocess.run(["gcloud services vpc-peerings update --service=servicenetworking.googleapis.com  --network={}     --project=gweiss-simple-path --ranges={} --force".format(vpc_name, allocation_name)], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        err = proc.stderr
+        print("Wasn't able to connect private services")
+        print(err)
+        return None
+
     return vpc_name
 
 def fetch_sql_region(arg_region, envvar):
@@ -228,6 +243,58 @@ def create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc):
                 return False
 
         print(" Instance '{}' created with '{}' CPU(s) and '{}' RAM.".format(name, cpu, ram))
+        i = i + 1
+
+    print("")
+    return True
+
+def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc):
+    i = 0
+    for short_name in instance_names:
+        name = "{}-r".format(short_name)
+        cpu = vm_cpus[i]
+        ram = vm_ram[i]
+        # Need to special case our initial instance because we
+        # want it to be weak intentionally, and custom machines
+        # aren't weak enough...so using the --tier flag to create
+        # a micro instance (.6 GiB RAM and 1 vCPU) as our first instace
+        db_create_process = None
+        if cpu == "1":
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network={}".format(name, sql_region, "db-f1-micro", vpc)], shell=True, capture_output=True, text=True)
+        else:
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network={}".format(name, sql_region, cpu, ram, vpc)], shell=True, capture_output=True, text=True)
+
+        if db_create_process.returncode != 0:
+            err = db_create_process.stderr
+                # This particular error is given when the instance
+                # already exists, in which case, for our purposes, we
+                # won't exit the script, we can assume they ran before
+                # and perhaps something went wrong, so they're retrying
+            x = re.search("is the subject of a conflict", err)
+            if not x:
+                print("There was a problem creating instance: '{}'".format(name))
+                print (err)
+                return False
+
+        replica_name = "{}-replica".format(name)
+        if cpu == "1":
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network={} --master-instance-name={}".format(name, sql_region, "db-f1-micro", vpc, name)], shell=True, capture_output=True, text=True)
+        else:
+            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network={} --master-instance-name={}".format(name, sql_region, cpu, ram, vpc, name)], shell=True, capture_output=True, text=True)
+        
+        if db_create_process.returncode != 0:
+            err = db_create_process.stderr
+                # This particular error is given when the instance
+                # already exists, in which case, for our purposes, we
+                # won't exit the script, we can assume they ran before
+                # and perhaps something went wrong, so they're retrying
+            x = re.search("is the subject of a conflict", err)
+            if not x:
+                print("There was a problem creating instance: '{}'".format(name))
+                print (err)
+                return False
+
+        print(" Instance '{}' created with '{}' CPU(s) and '{}' RAM. With read replica: '{}'".format(name, cpu, ram, replica_name))
         i = i + 1
 
     print("")
@@ -502,6 +569,13 @@ def deploy_run_services(service_account, region, project_id, version):
 
     print("")
     return True
+
+def get_orchestrator_url():
+    proc = subprocess.run(["gcloud run services list --platform=managed | grep breaking-orchestrator"], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return None
+    url = proc.stdout.split()[3]
+    return url
 
 def deploy_k8s(region, project, vpc):
     k8s_name = "breaking-cluster"

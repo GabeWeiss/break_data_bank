@@ -61,7 +61,7 @@ def lease(transaction, db_type, size, duration):
 
 @run_function_as_async
 @firestore.transactional
-def add(transaction, db_type, size, resource_id, ip_address, replica_ip=None):
+def add(transaction, db_type, size, resource_id, connection_string, replica_ip):
     """
     Adds a resource with the given id to the pool corresponding to the given
     database type and size if it doesn't already exist.
@@ -74,8 +74,6 @@ def add(transaction, db_type, size, resource_id, ip_address, replica_ip=None):
         .collection("resources")
     )
     snapshot = pool_ref.document(resource_id).get(transaction=transaction)
-
-    connection_string = resource_id if db_type == CLOUD_SPANNER else ip_address
 
     if not snapshot.exists:
         resource_ref = pool_ref.document(resource_id)
@@ -180,7 +178,7 @@ async def add_resource():
     """
     req_data = await request.get_json()
     if not helpers.check_required_params(
-        req_data, ["database_type", "database_size", "resource_id"]
+        req_data, ["database_type", "database_size", "resource_id", "connection_string"]
     ):
         return "Bad Request: Missing required parameter", 400
 
@@ -193,9 +191,15 @@ async def add_resource():
     if not helpers.validate_resource_id(req_data["resource_id"]):
         return "Bad Request: Invalid resource_id", 400
 
-    resource_id = req_data["resource_id"]
-    ip_address = req_data["ip_address"] if "ip_address" in req_data.keys() else None
+    if not helpers.validate_connection_string(req_data["database_type"], req_data["connection_string"], req_data["resource_id"]):
+        return "Bad Request: Invalid connection_string", 400
+
     replica_ip = req_data["replica_ip"] if "replica_ip" in req_data.keys() else None
+    if not helpers.validate_replica_ip(req_data["database_type"], replica_ip):
+        return "Bad Request: Replication servers require a replica_ip", 400
+
+    resource_id = req_data["resource_id"]
+
 
     with db.transaction() as transaction:
         try:
@@ -204,7 +208,7 @@ async def add_resource():
                 req_data["database_type"],
                 req_data["database_size"],
                 resource_id,
-                ip_address,
+                req_data["connection_string"],
                 replica_ip,
             )
             return f"Successfully added resource {resource_id} to pool", 200

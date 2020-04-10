@@ -18,7 +18,7 @@ import asyncio
 from functools import wraps, partial
 
 DB_TYPES = {1: "cloud-sql", 2: "cloud-sql-read-replica", 3: "spanner"}
-DB_SIZES = {1: "1x", 2: "2x", 3: "3x"}
+DB_SIZES = {1: "1x", 2: "2x", 3: "4x"}
 
 
 def check_required_params(req, keys):
@@ -51,6 +51,22 @@ def validate_db_type(db_type):
     """
     return db_type in DB_TYPES.keys()
 
+def validate_replica_ip(db_type, replica_ip):
+    # Type 2 is Cloud SQL with replication
+    if db_type == 2 and replica_ip == None:
+        return False
+    return True
+
+def validate_connection_string(db_type, connection_string, resource_id) :
+    # Type 3 is Spanner, so if we see a non-Spanner type instance,
+    # and we see something that ISN'T an IP address for the connection
+    # string, fail.
+    if db_type != 3 and re.match(r"[^0-9\.]+"):
+        return False
+    # For Spanner instances, the connection string IS the resource_id
+    elif db_type == 3 and resource_id != connection_string:
+        return False
+    return True
 
 def is_available(resource):
     """
