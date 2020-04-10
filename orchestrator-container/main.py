@@ -35,7 +35,7 @@ CLOUD_SQL_REPLICA = 2
 CLOUD_SPANNER     = 3
 
 app = Quart(__name__)
-app = quart_cors.cors(app, allow_origin=["https://p-511-gcloud-dataservices-dev.appspot.com/","https://p-511-gcloud-dataservices-stg.appspot.com/","https://dplex-n20-breaking-databank.appspot.com","https://localhost:4200"])
+app = quart_cors.cors(app, allow_origin=["https://p-511-gcloud-dataservices-dev.appspot.com","https://p-511-gcloud-dataservices-stg.appspot.com","https://dplex-n20-breaking-databank.appspot.com","https://localhost:4200"])
 
 # CHANGE THIS FOR FINAL PROD
 gDuration = 3 # represents the duration we're reserving an instance
@@ -60,6 +60,7 @@ async def index():
             <li>test</li>
             <li>fail</li>
             <li>run</li>
+            <li>cached</li>
         </ul>
     </body></html>"""
 
@@ -195,7 +196,7 @@ async def run():
                                      int(intensity))
                 )
     jobs_len = len(job_ids)
-    if jobs_len < 1:
+    if jobs_len < 3:
         return "Unable to create load jobs.", 503
 
     resource_ids = []
