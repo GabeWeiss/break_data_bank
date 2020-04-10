@@ -333,7 +333,7 @@ public class BreakingDataTransactions {
 
     PCollection<Result> result =
         dataCollection
-            .apply(Window.into(FixedWindows.of(Duration.standardSeconds(5))))
+            .apply(Window.into(FixedWindows.of(Duration.standardSeconds(1))))
             .apply(WithKeys.of(x -> x.operation + "-" + x.job_id))
             .setCoder(KvCoder.of(StringUtf8Coder.of(), AvroCoder.of(Data.class)))
             .apply(Combine.<String, Data, Result>perKey(new DataAnalysis()))
