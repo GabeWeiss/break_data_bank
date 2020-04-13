@@ -124,16 +124,20 @@ def create_vpc():
     proc = subprocess.run(["gcloud compute addresses create {} --global --purpose=VPC_PEERING --prefix-length=24 --network={}".format(allocation_name, vpc_name)], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         err = proc.stderr
-        print("Wasn't able to allocate private IPs for your VPC network")
-        print(err)
-        return None
-    
-    proc = subprocess.run(["gcloud services vpc-peerings update --service=servicenetworking.googleapis.com  --network={}     --project=gweiss-simple-path --ranges={} --force".format(vpc_name, allocation_name)], shell=True, capture_output=True, text=True)
-    if proc.returncode != 0:
-        err = proc.stderr
-        print("Wasn't able to connect private services")
-        print(err)
-        return None
+        x = re.search("already exists", err)
+        if not x:
+            print("Wasn't able to allocate private IPs for your VPC network")
+            print(err)
+            return None
+    else: # Only run the vpc-peerings if it's a new situation
+        proc = subprocess.run(["gcloud services vpc-peerings update --service=servicenetworking.googleapis.com  --network={}     --project=gweiss-simple-path --ranges={} --force".format(vpc_name, allocation_name)], shell=True, capture_output=True, text=True)
+        if proc.returncode != 0:
+            err = proc.stderr
+            x = re.search("already exists", err)
+            if not x:
+                print("Wasn't able to connect private services")
+                print(err)
+                return None
 
     return vpc_name
 
@@ -254,6 +258,7 @@ def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vp
         name = "{}-r".format(short_name)
         cpu = vm_cpus[i]
         ram = vm_ram[i]
+
         # Need to special case our initial instance because we
         # want it to be weak intentionally, and custom machines
         # aren't weak enough...so using the --tier flag to create
@@ -276,14 +281,20 @@ def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vp
                 print (err)
                 return False
 
+            # NOTE: There's a workaround in here for b/145025740
+            # I've removed all references to --tier, --ram and --cpu. This means,
+            # currently, it should grab the tier of the master instance which
+            # is fine. We SHOULD be able to specify different specs for the replica
+            # than the master, but currently we can't
         replica_name = "{}-replica".format(name)
+        replica_process = None
         if cpu == "1":
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network={} --master-instance-name={}".format(name, sql_region, "db-f1-micro", vpc, name)], shell=True, capture_output=True, text=True)
+            replica_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --network={} --master-instance-name={}".format(replica_name, sql_region, vpc, name)], shell=True, capture_output=True, text=True)
         else:
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network={} --master-instance-name={}".format(name, sql_region, cpu, ram, vpc, name)], shell=True, capture_output=True, text=True)
+            replica_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --network={} --master-instance-name={}".format(replica_name, sql_region, vpc, name)], shell=True, capture_output=True, text=True)
         
-        if db_create_process.returncode != 0:
-            err = db_create_process.stderr
+        if replica_process.returncode != 0:
+            err = replica_process.stderr
                 # This particular error is given when the instance
                 # already exists, in which case, for our purposes, we
                 # won't exit the script, we can assume they ran before
@@ -390,9 +401,6 @@ def set_spanner_db_resources(names):
     return True
 
 def deploy_containers(project_id, version):
-    if not deploy_resource_container(project_id):
-        return False
-
     if not deploy_load_gen_script_container(project_id, version):
         return False
 
@@ -404,27 +412,27 @@ def deploy_containers(project_id, version):
 
     return True
 
-def deploy_resource_container(project_id):
+def deploy_db_resource_container(project_id):
     proc = subprocess.run(["docker build -t breaking-db-lease ."], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("Couldn't build the db-lease container.\n")
+        print("   Couldn't build the db-lease container.\n")
         print(proc.stderr)
         return False
-    print("Built the db-lease-container")
+    print(" Built the db-lease-container")
 
     proc = subprocess.run(["docker tag breaking-db-lease gcr.io/{}/breaking-db-lease".format(project_id)], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("Couldn't tag the db-lease container.\n")
+        print("   Couldn't tag the db-lease container.\n")
         print(proc.stderr)
         return False
-    print("Tagged the db-lease-container")
+    print(" Tagged the db-lease-container")
 
     proc = subprocess.run(["docker push gcr.io/{}/breaking-db-lease".format(project_id)], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("Couldn't push the db-lease container.\n")
+        print("   Couldn't push the db-lease container.\n")
         print(proc.stderr)
         return False
-    print("Pushed the db-lease-container")
+    print(" Pushed the db-lease-container")
 
     print("")
     return True
@@ -432,24 +440,24 @@ def deploy_resource_container(project_id):
 def deploy_load_gen_script_container(project_id, version):
     proc = subprocess.run(["docker build -t breaking-loadgen-script ."], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("Couldn't build the load-gen-script container.\n")
+        print("   Couldn't build the load-gen-script container.\n")
         print(proc.stderr)
         return False
-    print("Built the load-gen-script container")
+    print(" Built the load-gen-script container")
 
     proc = subprocess.run(["docker tag breaking-loadgen-script gcr.io/{}/breaking-loadgen:{}".format(project_id, version)], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("Couldn't tag the load-gen-script container.\n")
+        print("   Couldn't tag the load-gen-script container.\n")
         print(proc.stderr)
         return False
-    print("Tagged the load-gen-script container")
+    print(" Tagged the load-gen-script container")
 
     proc = subprocess.run(["docker push gcr.io/{}/breaking-loadgen".format(project_id)], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("Couldn't push the load-gen-script container.\n")
+        print("   Couldn't push the load-gen-script container.\n")
         print(proc.stderr)
         return False
-    print("Pushed the load-gen-script container")
+    print(" Pushed the load-gen-script container")
 
     print("")
     return True
@@ -545,27 +553,38 @@ def deploy_orchestrator_container(project_id):
     print("")
     return True
 
-def deploy_run_services(service_account, region, project_id, version):
+def deploy_db_resource_service(service_account, region, project_id):
     proc = subprocess.run(["gcloud run deploy breaking-db-lease --platform=managed --port=5000 --allow-unauthenticated --service-account={} --region={} --image=gcr.io/{}/breaking-db-lease".format(service_account, region, project_id)], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("Couldn't start the db-lease Cloud Run service")
+        print("   Couldn't start the db-lease Cloud Run service")
         print(proc.stderr)
-        return False
-    print("Started the db-lease Cloud Run service")
+        return None
 
+    db_lease_url = None
+    # I hate this...it's another case where user-useful information is being
+    # put out on stderr, rather than stdout.
+    out = proc.stderr
+    x = re.search("percent of traffic at (.*)\n", out)
+    if x != None:
+        db_lease_url = x.group(1)
+    if db_lease_url != None:
+        print(" Started the db-lease Cloud Run service")
+    return db_lease_url
+
+def deploy_run_services(service_account, region, project_id, version):
     proc = subprocess.run(["gcloud run deploy breaking-load-service --platform=managed --port=5000 --allow-unauthenticated --service-account={} --region={} --image=gcr.io/{}/breaking-loadgen-service".format(service_account, region, project_id)], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("Couldn't start the load gen Cloud Run service")
+        print("   Couldn't start the load gen Cloud Run service")
         print(proc.stderr)
         return False
-    print("Started the load gen Cloud Run service")
+    print(" Started the load gen Cloud Run service")
 
     proc = subprocess.run(["gcloud run deploy breaking-orchestrator --platform=managed --port=5000 --allow-unauthenticated --service-account={} --region={} --image=gcr.io/{}/breaking-orchestrator".format(service_account, region, project_id)], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("Couldn't start the orchestrator Cloud Run service")
+        print("   Couldn't start the orchestrator Cloud Run service")
         print(proc.stderr)
         return False
-    print("Started the orchestrator Cloud Run service")
+    print(" Started the orchestrator Cloud Run service")
 
     print("")
     return True

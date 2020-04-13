@@ -108,9 +108,9 @@ print("  Successfully enabled all required services\n")
 
 print("Creating and fetching service account (Note, you'll get an email about downloading a service key if you haven't downloaded it yet)")
 
-#service_account = build_helpers.create_service_account(project_id)
-#if service_account == None:
-#    sys.exit(1)
+service_account = build_helpers.create_service_account(project_id)
+if service_account == None:
+    sys.exit(1)
 
 print("  Successfully created our service account\n")
 
@@ -141,7 +141,26 @@ print("  Successfully created Pub/Sub topic\n")
 ## Create Database instances ##
 ###############################
 
-db_name_version = "01"
+# First we need to deploy our db-lease service because it manages adding our db metadata
+# to the Firestore instance
+
+print("Deploying database lease container\n")
+
+#if not build_helpers.deploy_db_resource_container(project_id):
+#    sys.exit(1)
+
+print("  Successfully deployed database lease container\n")
+
+print("Deploying database lease Cloud Run service\n")
+
+db_resource_url = "https://breaking-db-lease-5gh6m2f5oq-uc.a.run.app" # DEBUGGING
+#db_resource_url = build_helpers.deploy_db_resource_service(service_account, sql_region, project_id)
+if db_resource_url == None:
+    sys.exit(1)
+
+print("  Successfully deployed database lease service\n")
+
+db_name_version = "3"
 instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
 
 # Cloud SQL
@@ -151,8 +170,8 @@ print("Starting to create Cloud SQL instances (This takes awhile, don't panic)\n
 vm_cpus = [ "1", "4", "16" ]
 vm_ram = [ "1GiB", "4GiB", "16GiB" ]
 
-if not build_helpers.create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc_name):
-    sys.exit(1)
+#if not build_helpers.create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc_name):
+#    sys.exit(1)
 
 print("  Finished creating Cloud SQL instances\n")
 
@@ -168,14 +187,14 @@ print("Starting to create Cloud Spanner instances\n")
 power_unit = [ "1", "4", "10" ]
 spanner_descriptions = [ "Breaking Small{}".format(db_name_version), "Breaking Medium{}".format(db_name_version), "Breaking Large{}".format(db_name_version) ]
 
-#if not build_helpers.create_spanner_instances(instance_names, spanner_region, power_unit, spanner_descriptions):
-#    sys.exit(1)
+if not build_helpers.create_spanner_instances(instance_names, spanner_region, power_unit, spanner_descriptions):
+    sys.exit(1)
 
 print("  Finished creating Cloud Spanner instances\n")
 
-#################################
-## Build and deploy containers ##
-#################################
+#############################################
+## Build and deploy rest of the containers ##
+#############################################
 
 # We need to create our k8s service account yaml first, because
 # we need the service account name in our container's yaml configuration
