@@ -177,8 +177,8 @@ print("  Finished creating Cloud SQL instances\n")
 
 print("Starting to create Cloud SQL w/ replica instances (another big wait incoming\n")
 
-if not build_helpers.create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc_name):
-    sys.exit(1)
+#if not build_helpers.create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc_name):
+#    sys.exit(1)
 
 print ("  Finished creating Cloud SQL w/ replica instances\n")
 
@@ -187,8 +187,8 @@ print("Starting to create Cloud Spanner instances\n")
 power_unit = [ "1", "4", "10" ]
 spanner_descriptions = [ "Breaking Small{}".format(db_name_version), "Breaking Medium{}".format(db_name_version), "Breaking Large{}".format(db_name_version) ]
 
-if not build_helpers.create_spanner_instances(instance_names, spanner_region, power_unit, spanner_descriptions):
-    sys.exit(1)
+#if not build_helpers.create_spanner_instances(instance_names, spanner_region, power_unit, spanner_descriptions):
+#    sys.exit(1)
 
 print("  Finished creating Cloud Spanner instances\n")
 
