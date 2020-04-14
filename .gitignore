@@ -17,4 +17,7 @@ load-gen-script/service-account.yaml
 load-gen-service/config.yaml
 *.json
 
+# Firestore needs some setup files but we don't want them
+build/firestore_setup
+
 cloud_sql_proxy
