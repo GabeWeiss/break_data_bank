@@ -23,8 +23,9 @@ def verify_prerequisites():
         subprocess.run(["mvn --version"], shell=True, check=True, capture_output=True)
         subprocess.run(["gcloud --version"], shell=True, check=True, capture_output=True)
         subprocess.run(["gsutil --version"], shell=True, check=True, capture_output=True)
+        subprocess.run(["firebase --version"], shell=True, check=True, capture_output=True)
     except:
-        print("\n\nYou're missing one of the prerequisites to run this build script. You must have Docker, kubectl, Maven, gsutil and gcloud installed.\n\n")
+        print("\n\nYou're missing one of the prerequisites to run this build script. You must have Docker, kubectl, Maven, firebase CLI, gsutil and gcloud installed.\n\n")
         return False
 
     # They need the JDK in order to do the Dataflow piece

@@ -22,8 +22,8 @@ args = parser.parse_args()
 print("Verifying prerequisite installations")
 
 # Run a couple checks to verify pre-requisites
-#if not build_helpers.verify_prerequisites():
-#    sys.exit(1)
+if not build_helpers.verify_prerequisites():
+    sys.exit(1)
 
 print("  Verified\n")
 
@@ -192,6 +192,29 @@ spanner_descriptions = [ "Breaking Small{}".format(db_name_version), "Breaking M
 
 print("  Finished creating Cloud Spanner instances\n")
 
+
+#######################################
+## Insert DB metadata into Firestore ##
+#######################################
+
+print("Starting to add all database resource meta data to Firestore\n")
+# TODO: adjust the Firestore indexes programatically:
+# https://cloud.google.com/firestore/docs/query-data/indexing#use_the_firebase_cli
+# Will need to also change up the prerequisites to include the firebase cli
+# Could also look into auto-installing them by prompt perhaps
+
+#if not build_helpers.initialize_firestore():
+#    sys.exit(1)
+
+#if not build_helpers.set_sql_db_resources(instance_names):
+#    sys.exit(1)
+
+#if not build_helpers.set_spanner_db_resources(instance_names):
+#    sys.exit(1)
+
+print("  Finished adding all database resource metadata to Firestore\n")
+
+
 #############################################
 ## Build and deploy rest of the containers ##
 #############################################
@@ -237,23 +260,6 @@ print("Starting to deploy Cloud Run services. This will take a bit for each one\
 #    sys.exit(1)
 
 print("  Finished deploying Cloud Run services\n")
-
-#######################################
-## Insert DB metadata into Firestore ##
-#######################################
-
-print("Starting to add all database resource meta data to Firestore\n")
-
-#if not build_helpers.initialize_firestore():
-#    sys.exit(1)
-
-#if not build_helpers.set_sql_db_resources(instance_names):
-#    sys.exit(1)
-
-#if not build_helpers.set_spanner_db_resources(instance_names):
-#    sys.exit(1)
-
-print("  Finished adding all database resource metadata to Firestore\n")
 
 ###################################
 ## Deploy the Kubernetes Cluster ##
