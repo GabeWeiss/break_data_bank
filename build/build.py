@@ -17,9 +17,9 @@ pubsub_envvar = "BREAKING_PUBSUB"
 # change any of these values. If you don't wish to do any of the pieces,
 # set the variable to 0
 flag_verify_prerequisites = 0
-flag_authenticate_gcloud = 0
+flag_authenticate_gcloud = 0 # we may never need this because we're using a service account
 flag_authorize_gcloud_docker = 0
-flag_enable_gcp_services = 0
+flag_enable_gcp_services = 1
 flag_setup_and_fetch_service_account = 1
 flag_setup_firestore = 1
 flag_create_vpc = 0
@@ -108,6 +108,14 @@ if spanner_region == None:
 
 print(" Spanner region: '{}'".format(spanner_region))
 
+# We will grab an available App Engine region (for Firestore) based as closely
+# on the region specified by the compute region we've fetched already
+firestore_region = build_helpers.extrapolate_firestore_region(sql_region)
+if firestore_region == None:
+    sys.exit(1)
+
+print(" Firestore region: '{}'".format(firestore_region))
+
 pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub, pubsub_envvar)
 if pubsub_topic == None:
     sys.exit(1)
@@ -121,7 +129,7 @@ print("  Finished fetching project metadata\n")
 ######################################################
 
 if flag_enable_gcp_services:
-    print("Enabling GCP services/APIs")
+    print("Enabling GCP services/APIs (there are a lot of them, this will take some time)")
 
     # There are a number of services that we need in order to build
     # this demo. This call enables the necessary services in your project
@@ -146,7 +154,7 @@ if flag_setup_and_fetch_service_account:
 if flag_setup_firestore:
     print("Setting up Firestore")
 
-    if not build_helpers.initialize_firestore(project_id):
+    if not build_helpers.initialize_firestore(project_id, firestore_region):
         sys.exit(1)
 
     print("Firestore all setup to go\n")
