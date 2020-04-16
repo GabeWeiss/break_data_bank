@@ -3,8 +3,10 @@
 import argparse
 import os
 import re
+from shutil import copyfile
 import subprocess
 import time
+import webbrowser
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -60,7 +62,7 @@ def enable_services():
 
 # NOTE: Several of our APIs need a service account 
 # with appropriate permissions to run. To this end,
-# you'll need a service account created with the following
+# we'll need a service account created with the following
 # permissions:
 # - Cloud SQL Client
 # - Dataflow Admin
@@ -336,7 +338,63 @@ def create_spanner_instances(instance_names, spanner_region, nodes, spanner_desc
     print("")
     return True
 
-def initialize_firestore():
+def initialize_firestore(project_id):
+    # First we need to establish that they've gone through the basics
+    # of enabling Firestore in their project. We'll use indexes to verify
+    proc = subprocess.run(["firebase firestore:indexes -P {}".format(project_id)], shell=True, capture_output=True, text=True)
+
+    already_has_firestore = True
+    if proc.returncode != 0:
+        err = proc.stderr
+        x = re.search("does not exist", err)
+        if x:
+            already_has_firestore = False
+            print("\n It appears that you have not yet setup Firestore for your project. This script will attempt to open to the web console for you to set it up.\n\n1) Select Native Mode\n2) The region should match the region you're using for everything else as closely as possible. Regional instance is fine.\n\nWait until it finishes (Takes a couple minutes), then come back here and hit any key to continue the build script.\n\nPress return to launch web browser:")
+            y = input()
+            webbrowser.open("https://console.cloud.google.com/firestore/welcome?project={}&folder=&organizationId=&supportedpurview=project".format(project_id))
+            print("\nThis next section may ask you to pick names for certain resources. Go ahead and just hit enter and leave the defaults the way they are.\n")
+            print("Press return to continue...")
+            y = input()
+
+    # Setup our indexes we'll need for querying later
+    # This involves creating a tmp directory for firestore deploying purposes
+    firestore_dir = './firestore_setup'
+    try:
+        os.makedirs(firestore_dir)
+    except:
+        print("Couldn't create out  setup directory. This may cause Firestore to be improperly setup.")
+
+    if not already_has_firestore:
+        # This is hacky as heck, but we need to be sure that Firebase, is also added
+        # to the project, not just Firestore, because otherwise we can't deploy
+        # Firestore rules
+        proc = subprocess.run(["firebase projects:addfirebase {}".format(project_id)], shell=True, text=True, cwd=firestore_dir)
+        if proc.returncode != 0:
+            print("Wasn't able to add Firestore initialization to the environment. We may have trouble proceeding")
+            print(proc.stderr)
+            return False
+
+
+    proc = subprocess.run(["firebase init firestore -P {}".format(project_id)], shell=True, text=True, cwd=firestore_dir)
+    if proc.returncode != 0:
+        print("   Wasn't able to initialize firestore for our project.")
+        print(proc.stderr)
+        return False
+
+    try:
+        copyfile('firestore.indexes', "{}/firestore.indexes.json".format(firestore_dir))
+    except:
+        print("   Wasn't able to copy our index files")
+        return False
+
+    proc = subprocess.run(["firebase deploy --only firestore:indexes"], shell=True, text=True, capture_output=True, cwd=firestore_dir)
+    if proc.returncode != 0:
+        print("   There was a problem creating our Firestore indexes.")
+        print(proc.stderr)
+        return False
+
+    return False
+
     global db
     # Passing "None" here means use the application default credentials
     try:
