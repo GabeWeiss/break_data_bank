@@ -368,7 +368,13 @@ if flag_deploy_dataflow:
     if not build_helpers.deploy_dataflow():
         sys.exit(1)
 
-    print("  Successfully deployed Dataflow pipeline")
+    print("  Successfully deployed Dataflow pipeline\n")
 
+
+########################
+## Final Instructions ##
+########################
+
+print("The build script has successfully completed. The entry point for any front-end is our orchestrator service, which is currently running at:\n\n{}\n\nThe APIs for that entrance point can be found in the API_REFERENCE.txt file in the repo's root folder.".format(orchestrator_url))
 
 print("\n")
