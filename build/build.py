@@ -19,14 +19,14 @@ pubsub_envvar = "BREAKING_PUBSUB"
 flag_verify_prerequisites = 0
 flag_authenticate_gcloud = 0 # we may never need this because we're using a service account
 flag_authorize_gcloud_docker = 0
-flag_enable_gcp_services = 1
+flag_enable_gcp_services = 0
 flag_setup_and_fetch_service_account = 1
-flag_setup_firestore = 1
-flag_create_vpc = 0
+flag_setup_firestore = 0
+flag_create_vpc = 1
 flag_create_pubsub = 0
 flag_deploy_db_lease_service = 0
-flag_create_db_instances = 0
-flag_add_dbs_to_firestore = 0
+flag_create_db_instances = 1
+flag_add_dbs_to_firestore = 1
 flag_build_and_deploy_containers = 0
 flag_deploy_cloud_run_services = 0
 flag_deploy_k8s_cluster = 0
@@ -201,7 +201,6 @@ if flag_deploy_db_lease_service:
 
     print("Deploying database lease Cloud Run service\n")
 
-    db_resource_url = "https://breaking-db-lease-5gh6m2f5oq-uc.a.run.app" # DEBUGGING
     #db_resource_url = build_helpers.deploy_db_resource_service(service_account, sql_region, project_id)
     if db_resource_url == None:
         sys.exit(1)
@@ -252,11 +251,15 @@ if flag_add_dbs_to_firestore:
     # https://cloud.google.com/firestore/docs/query-data/indexing#use_the_firebase_cli
     # Will need to also change up the prerequisites to include the firebase cli
     # Could also look into auto-installing them by prompt perhaps
+ 
+ # DEBUGGING (this gets set up above when we deploy the db-lease service)
+    db_resource_url = "https://breaking-db-lease-5gh6m2f5oq-uc.a.run.app"
+ # Remove line above when ready to deploy for real
 
-    if not build_helpers.set_sql_db_resources(instance_names):
+    if not build_helpers.set_sql_db_resources(instance_names, db_resource_url):
         sys.exit(1)
 
-    if not build_helpers.set_spanner_db_resources(instance_names):
+    if not build_helpers.set_spanner_db_resources(instance_names, db_resource_url):
         sys.exit(1)
 
     print("  Finished adding all database resource metadata to Firestore\n")

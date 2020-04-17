@@ -3,6 +3,7 @@
 import argparse
 import os
 import re
+import requests
 from shutil import copyfile
 import subprocess
 import time
@@ -10,6 +11,12 @@ import webbrowser
 
 import firebase_admin
 from firebase_admin import credentials, firestore
+
+# These values appear in several of the service scripts
+# If they change here, they must be changed everywhere
+CLOUD_SQL = 1
+CLOUD_SQL_READ_REPLICA = 2
+CLOUD_SPANNER = 3
 
 db = None
 
@@ -463,11 +470,82 @@ def initialize_firestore(project_id, region):
         return False
     return True
 
-# This is pretty hacky. There's likely a cleaner way
-# to do this, and we'll have to rejigger this when we
-# add more than one database resource per type/size
-def set_sql_db_resources(names):
+def add_db(url, database_type, database_size, resource_id, connection_string, replica_ip):
+    parameters = {'database_type':database_type,'database_size':database_size,'resource_id':resource_id, 'connection_string':connection_string, 'replica_ip':replica_ip }
+    print(parameters)
+#    r = requests.post(url = db_lease_url, json = parameters)
+#    print(r.text)
+    return True
+
+# Make use of the db-lease service to add our dbs to Firestore
+
+# Note, this is a hack. It relies on us only adding 3 db's.
+def set_sql_db_resources(names, url):
     global db
+
+    # Service needs:
+    #   "database_type"
+    #   "database_size"
+    #   "resource_id"
+    #   "connection_string"
+    #   "replica_ip" <-- when DB is type CLOUD_SQL_READ_REPLICA
+    INST_LIST_LEN = 7
+    INST_POS_RESOURCE_ID = 0
+    INST_POS_IP = 5
+    INST_ITERATION_SQL = 0
+    INST_ITERATION_SQL_REPLICA = 1
+    INST_ITERATION_SQL_R = 2
+    current_db_type = CLOUD_SQL
+
+    for name in names:
+        print("Processing name: {}".format(name))
+        database_type = CLOUD_SQL # Starts here
+        database_size = -1
+        if re.search("sm", name):
+            database_size = 1
+        elif re.search("med", name):
+            database_size = 2
+        elif re.search("lrg", name):
+            database_size = 3
+
+        if database_size == -1:
+            print("Couldn't figure out what size our database is ({}), so it won't be added to our Firestore metadata.".format(name))
+            return False
+
+        resource_id = None
+        connection_string = None
+        replica_ip = None
+
+        info_proc = subprocess.run(["gcloud sql instances list | grep {}".format(name)], shell=True, capture_output=True, text=True)
+        out = info_proc.stdout
+
+        print("\n{}\n".format(out))
+        
+        instance_data = out.split()
+        i = 0
+        for entry in instance_data:
+            print("{}: {}".format(i, entry))
+            if i == 0:
+                resource_id = entry
+            if i == 5:
+                connection_string = entry
+            if i == 6:
+                if not add_db(url, database_type, database_size, resource_id, connection_string, None):
+                    return False
+                database_type = CLOUD_SQL_READ_REPLICA
+            if i == 12:
+                replica_ip = entry
+            if i == 14:
+                resource_id = entry
+            if i == 19:
+                connection_string = entry
+            if i == 20:
+                if not add_db(url, database_type, database_size, resource_id, connection_string, replica_ip):
+                    return False
+
+            i = i + 1
+
+    return True
 
     cloud_sql_base_collection = db.collection(u'db_resources').document(u'cloud-sql').collection(u'sizes')
 
@@ -498,7 +576,7 @@ def set_sql_db_resources(names):
     print("")
     return True
 
-def set_spanner_db_resources(names):
+def set_spanner_db_resources(names, url):
     global db
 
     cloud_spanner_base_collection = db.collection(u'db_resources').document(u'cloud-spanner').collection(u'sizes')
