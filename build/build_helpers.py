@@ -466,31 +466,36 @@ def initialize_firestore(project_id, region):
         firebase_admin.initialize_app(None)
         db = firestore.client()
     except:
-        print("There was a problem initializing Firestore")
+        print("   There was a problem initializing Firestore")
         return False
     return True
 
 def add_db(url, database_type, database_size, resource_id, connection_string, replica_ip):
     parameters = {'database_type':database_type,'database_size':database_size,'resource_id':resource_id, 'connection_string':connection_string, 'replica_ip':replica_ip }
-    print(parameters)
     r = requests.post(url = url, json = parameters)
-    print(r.text)
+
+    # TODO: Figure out a better error code system for the db-lease container
+
+    db_name = "cloud sql"
+    if database_type == CLOUD_SQL_READ_REPLICA:
+        db_name = "cloud sql w/ replica"
+    elif database_type == CLOUD_SPANNER:
+        db_name = "cloud spanner"
+    print(" Added {} instance of size {}".format(db_name, database_size))
     return True
 
 # Make use of the db-lease service to add our dbs to Firestore
-def set_sql_db_resources(names, url):
     # Service needs:
     #   "database_type"
     #   "database_size"
     #   "resource_id"
     #   "connection_string"
     #   "replica_ip" <-- when DB is type CLOUD_SQL_READ_REPLICA
+def set_sql_db_resources(names, url):
     INST_POS_RESOURCE_ID = 0
     INST_POS_IP = 5
-    current_db_type = CLOUD_SQL
 
     for name in names:
-        print("Processing name: {}".format(name))
         database_size = -1
         database_type = CLOUD_SQL # Starts here
         if re.search("sm", name):
@@ -501,7 +506,7 @@ def set_sql_db_resources(names, url):
             database_size = 3
 
         if database_size == -1:
-            print("Couldn't figure out what size our database is ({}), so it won't be added to our Firestore metadata.".format(name))
+            print("   Couldn't figure out what size our database is ({}), so it won't be added to our Firestore metadata.".format(name))
             return False
 
         resource_id = None
@@ -511,7 +516,7 @@ def set_sql_db_resources(names, url):
         # First we handle Cloud SQL
         info_proc = subprocess.run(["gcloud sql instances list | grep \"{} \"".format(name)], shell=True, capture_output=True, text=True)
         if info_proc.returncode != 0:
-            print("There was a problem fetching the main sql instance info")
+            print("   There was a problem fetching the main sql instance info")
             print(info_proc.stderr)
             return False
         out = info_proc.stdout
@@ -521,7 +526,7 @@ def set_sql_db_resources(names, url):
             resource_id = instance_data[INST_POS_RESOURCE_ID]
             connection_string = instance_data[INST_POS_IP]
         except:
-            print("Looks like the format of the gcloud sql instances list output changed")
+            print("   Looks like the format of the gcloud sql instances list output changed")
             return False
 
         if not add_db(url, database_type, database_size, resource_id,       connection_string, None):
@@ -530,14 +535,14 @@ def set_sql_db_resources(names, url):
         # Next we handle the replica
         master_proc = subprocess.run(["gcloud sql instances list | grep \"{}-r \"".format(name)], shell=True, capture_output=True, text=True)
         if master_proc.returncode != 0:
-            print("There was a problem fetching the replica info")
+            print("   There was a problem fetching the replica info")
             print(master_proc.stderr)
             return False
         master_out = master_proc.stdout
 
         replica_proc = subprocess.run(["gcloud sql instances list | grep \"{}-r-replica \"".format(name)], shell=True, capture_output=True, text=True)
         if replica_proc.returncode != 0:
-            print("There was a problem fetching the replica info")
+            print("   There was a problem fetching the replica info")
             print(replica_proc.stderr)
             return False
         replica_out = replica_proc.stdout
@@ -551,7 +556,7 @@ def set_sql_db_resources(names, url):
             connection_string = master_data[INST_POS_IP]
             replica_ip = replica_data[INST_POS_IP]
         except:
-            print("Wasn't able to get our replica data. The data format might have changed")
+            print("   Wasn't able to get our replica data. The data format might have changed")
             return False
 
         if not add_db(url, database_type, database_size, resource_id,       connection_string, replica_ip):
@@ -560,20 +565,32 @@ def set_sql_db_resources(names, url):
     return True
 
 def set_spanner_db_resources(names, url):
-    global db
-
-    cloud_spanner_base_collection = db.collection(u'db_resources').document(u'cloud-spanner').collection(u'sizes')
-    sizes = [ "1x", "2x", "4x" ]
-    cloud_spanner_sm_collection = cloud_spanner_base_collection.document(u'1x').collection(u'resources')
-    cloud_spanner_med_collection = cloud_spanner_base_collection.document(u'2x').collection(u'resources')
-    cloud_spanner_lrg_collection = cloud_spanner_base_collection.document(u'4x').collection(u'resources')
-
-    i = 0
+    database_type = CLOUD_SPANNER
     for name in names:
-        cloud_spanner_doc = cloud_spanner_base_collection.document(sizes[i]).collection(u'resources').document(name)
-        cloud_spanner_doc.set({ u'expiry': 0 })
-        print(" Added {} to Firestore".format(name))
-        i = i + 1
+        database_size = -1
+        if re.search("sm", name):
+            database_size = 1
+        elif re.search("med", name):
+            database_size = 2
+        elif re.search("lrg", name):
+            database_size = 3
+
+        proc = subprocess.run(["gcloud spanner instances list | grep {}".format(name)], shell=True, capture_output=True, text=True)
+        if proc.returncode != 0:
+            print("   Wasn't able to fetch our spanner instance list")
+            print(proc.stderr)
+            return False
+
+        out = proc.stdout
+        try:
+            resource_id = out.split()[0]
+            connection_string = resource_id
+        except:
+            print("   Wasn't able to fetch out spanner IP, the format of gcloud spanner instances list may have changed")
+            return False
+
+        if not add_db(url, database_type, database_size, resource_id,       connection_string, None):
+            return False
 
     print("")
     return True
