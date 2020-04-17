@@ -20,12 +20,12 @@ flag_verify_prerequisites = 0
 flag_authenticate_gcloud = 0 # we may never need this because we're using a service account
 flag_authorize_gcloud_docker = 0
 flag_enable_gcp_services = 0
-flag_setup_and_fetch_service_account = 1
+flag_setup_and_fetch_service_account = 0
 flag_setup_firestore = 0
-flag_create_vpc = 1
+flag_create_vpc = 0
 flag_create_pubsub = 0
 flag_deploy_db_lease_service = 0
-flag_create_db_instances = 1
+flag_create_db_instances = 0
 flag_add_dbs_to_firestore = 1
 flag_build_and_deploy_containers = 0
 flag_deploy_cloud_run_services = 0
@@ -207,10 +207,13 @@ if flag_deploy_db_lease_service:
 
     print("  Successfully deployed database lease service\n")
 
-if flag_create_db_instances:
-    db_name_version = "3"
-    instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
+db_name_version = "3"
+# Note, for the meta data insertion to work, the name of the instance must
+# have "sm" in it for db_size = 1, "med" for db_size = 2, and "lrg" for
+# db_size = 3.
+instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
 
+if flag_create_db_instances:
     # Cloud SQL
 
     print("Starting to create Cloud SQL instances (This takes awhile, don't panic)\n")
@@ -256,10 +259,11 @@ if flag_add_dbs_to_firestore:
     db_resource_url = "https://breaking-db-lease-5gh6m2f5oq-uc.a.run.app"
  # Remove line above when ready to deploy for real
 
-    if not build_helpers.set_sql_db_resources(instance_names, db_resource_url):
+    db_add_endpoint = "{}/add".format(db_resource_url)
+    if not build_helpers.set_sql_db_resources(instance_names, db_add_endpoint):
         sys.exit(1)
 
-    if not build_helpers.set_spanner_db_resources(instance_names, db_resource_url):
+    if not build_helpers.set_spanner_db_resources(instance_names, db_add_endpoint):
         sys.exit(1)
 
     print("  Finished adding all database resource metadata to Firestore\n")
