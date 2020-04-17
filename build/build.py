@@ -250,15 +250,7 @@ if flag_create_db_instances:
 
 if flag_add_dbs_to_firestore:
     print("Starting to add all database resource meta data to Firestore\n")
-    # TODO: adjust the Firestore indexes programatically:
-    # https://cloud.google.com/firestore/docs/query-data/indexing#use_the_firebase_cli
-    # Will need to also change up the prerequisites to include the firebase cli
-    # Could also look into auto-installing them by prompt perhaps
  
- # DEBUGGING (this gets set up above when we deploy the db-lease service)
-    db_resource_url = "https://breaking-db-lease-5gh6m2f5oq-uc.a.run.app"
- # Remove line above when ready to deploy for real
-
     db_add_endpoint = "{}/add".format(db_resource_url)
     if not build_helpers.set_sql_db_resources(instance_names, db_add_endpoint):
         sys.exit(1)
