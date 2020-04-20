@@ -166,7 +166,7 @@ if flag_setup_firestore:
 if flag_create_vpc:
     print("Creating new VPC network")
 
-    vpc_name = build_helpers.create_vpc()
+    vpc_name = build_helpers.create_vpc(project_id)
     if vpc_name == None:
         sys.exit(1)
 

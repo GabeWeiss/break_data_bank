@@ -114,7 +114,7 @@ def create_service_account(project_id):
     # allocate a broad range. Rather than risk running out of IPs, which
     # results in failing to create the GKE cluster, we'll just isolate
     # in our own VPC
-def create_vpc():
+def create_vpc(project_id):
     vpc_name = "breaking-vpc"
     proc = subprocess.run([f"gcloud compute networks create {vpc_name}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -135,15 +135,15 @@ def create_vpc():
             print("Wasn't able to allocate private IPs for your VPC network")
             print(err)
             return None
-    else: # Only run the vpc-peerings if it's a new situation
-        proc = subprocess.run([f"gcloud services vpc-peerings update --service=servicenetworking.googleapis.com  --network={vpc_name}     --project=gweiss-simple-path --ranges={allocation_name} --force"], shell=True, capture_output=True, text=True)
-        if proc.returncode != 0:
-            err = proc.stderr
-            x = re.search("already exists", err)
-            if not x:
-                print("Wasn't able to connect private services")
-                print(err)
-                return None
+
+    proc = subprocess.run([f"gcloud services vpc-peerings update --service=servicenetworking.googleapis.com  --network={vpc_name}     --project={project_id} --ranges={allocation_name} --force"], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        err = proc.stderr
+        x = re.search("already exists", err)
+        if not x:
+            print("Wasn't able to connect private services")
+            print(err)
+            return None
 
     return vpc_name
 
