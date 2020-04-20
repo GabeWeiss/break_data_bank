@@ -16,21 +16,21 @@ pubsub_envvar = "BREAKING_PUBSUB"
 # Broadly speaking, this is for debugging purposes, and you shouldn't
 # change any of these values. If you don't wish to do any of the pieces,
 # set the variable to 0
-flag_verify_prerequisites = 1
-flag_authenticate_gcloud = 1 # we may never need this because we're using a service account
-flag_authorize_gcloud_docker = 1
-flag_enable_gcp_services = 1
-flag_setup_and_fetch_service_account = 1
-flag_setup_firestore = 1
-flag_create_vpc = 1
-flag_create_pubsub = 1
-flag_deploy_db_lease_service = 1
-flag_create_db_instances = 1
-flag_add_dbs_to_firestore = 1
-flag_build_and_deploy_containers = 1
-flag_deploy_cloud_run_services = 1
-flag_deploy_k8s_cluster = 1
-flag_deploy_dataflow = 1
+flag_verify_prerequisites               = 0
+flag_authenticate_gcloud                = 0
+flag_authorize_gcloud_docker            = 0
+flag_enable_gcp_services                = 0
+flag_setup_and_fetch_service_account    = 0
+flag_setup_firestore                    = 0
+flag_create_vpc                         = 0
+flag_create_pubsub                      = 0
+flag_deploy_db_lease_service            = 0
+flag_create_db_instances                = 0
+flag_add_dbs_to_firestore               = 0
+flag_build_and_deploy_containers        = 0
+flag_deploy_cloud_run_services          = 0
+flag_deploy_k8s_cluster                 = 0
+flag_deploy_dataflow                    = 0
 
 print("\nStarting demo deployment...\n")
 
@@ -89,7 +89,7 @@ project_id = build_helpers.fetch_project_id(project_envvar)
 if project_id == None:
     sys.exit(1)
 
-print(" Project id: '{}'".format(project_id))
+print(f" Project id: '{project_id}'")
 
 # NOTE: This script will attempt to use a set of defaults for the
 # region to set up the services. If they aren't set, it will fall
@@ -98,7 +98,7 @@ sql_region = build_helpers.fetch_sql_region(args.region, region_envvar)
 if sql_region == None:
     sys.exit(1)
 
-print(" Region: '{}'".format(sql_region))
+print(f" Region: '{sql_region}'")
 
 # We try to determine a good spanner region based on the region specified
 # to keep them close to the same area
@@ -106,7 +106,7 @@ spanner_region = build_helpers.extrapolate_spanner_region(sql_region)
 if spanner_region == None:
     sys.exit(1)
 
-print(" Spanner region: '{}'".format(spanner_region))
+print(f" Spanner region: '{spanner_region}'")
 
 # We will grab an available App Engine region (for Firestore) based as closely
 # on the region specified by the compute region we've fetched already
@@ -114,13 +114,13 @@ firestore_region = build_helpers.extrapolate_firestore_region(sql_region)
 if firestore_region == None:
     sys.exit(1)
 
-print(" Firestore region: '{}'".format(firestore_region))
+print(f" Firestore region: '{firestore_region}'")
 
 pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub, pubsub_envvar)
 if pubsub_topic == None:
     sys.exit(1)
 
-print(" Pub/Sub topic: '{}'\n".format(pubsub_topic))
+print(f" Pub/Sub topic: '{pubsub_topic}'\n")
 
 print("  Finished fetching project metadata\n")
 
@@ -289,6 +289,7 @@ if flag_build_and_deploy_containers:
 ## Deploly Cloud Run services ##
 ################################
 
+orchestrator_url = None
 if flag_deploy_cloud_run_services:
     print("Creating the config yaml file for the load gen service")
 
