@@ -379,3 +379,6 @@ if flag_deploy_dataflow:
 print(f"The build script has successfully completed. The entry point for any front-end is our orchestrator service, which is currently running at:\n\n{orchestrator_url}\n\nThe APIs for that entrance point can be found in the API_REFERENCE.txt file in the repo's root folder.")
 
 print("\n")
+
+if not build_helpers.cleanup():
+    print("\nWasn't able to cleanup something, just be sure to be sure not to commit anything you shouldn't somewhere.\n")

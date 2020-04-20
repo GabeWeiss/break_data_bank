@@ -9,16 +9,11 @@ import subprocess
 import time
 import webbrowser
 
-import firebase_admin
-from firebase_admin import credentials, firestore
-
 # These values appear in several of the service scripts
 # If they change here, they must be changed everywhere
 CLOUD_SQL = 1
 CLOUD_SQL_READ_REPLICA = 2
 CLOUD_SPANNER = 3
-
-db = None
 
 def add_arguments(parser_obj):
     parser_obj.add_argument("-v", "--version", required=True,help="This is the version specified for the load-gen-script container. Should be in the format 'vx.x.x', e.g. v0.0.2")
@@ -28,7 +23,7 @@ def add_arguments(parser_obj):
 def verify_prerequisites():
     try:
         subprocess.run(["docker --version"], shell=True, check=True, capture_output=True)
-        subprocess.run(["kubectl version"], shell=True, check=True, capture_output=True)
+        subprocess.run(["kubectl version --client"], shell=True, check=True, capture_output=True)
         subprocess.run(["mvn --version"], shell=True, check=True, capture_output=True)
         subprocess.run(["gcloud --version"], shell=True, check=True, capture_output=True)
         subprocess.run(["gsutil --version"], shell=True, check=True, capture_output=True)
@@ -382,7 +377,7 @@ def run_firestore_create(region):
     # Alpha has a create database in gcloud, we'll go ahead and dogfood this...
     proc = subprocess.run([f"gcloud alpha firestore databases create --region={region}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        return proc.stderr, False
+        return proc.stderr
 
     return None
 
@@ -455,16 +450,6 @@ def initialize_firestore(project_id, region):
         print(proc.stderr)
         return False
 
-    return False
-
-    global db
-    # Passing "None" here means use the application default credentials
-    try:
-        firebase_admin.initialize_app(None)
-        db = firestore.client()
-    except:
-        print("   There was a problem initializing Firestore")
-        return False
     return True
 
 def add_db(url, database_type, database_size, resource_id, connection_string, replica_ip):
@@ -905,3 +890,6 @@ def deploy_dataflow():
         print(build_proc.stderr)
         return False
     return True
+
+def cleanup():
+    print("CLEANING UP")
