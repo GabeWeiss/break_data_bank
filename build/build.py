@@ -211,7 +211,7 @@ db_name_version = "3"
 # Note, for the meta data insertion to work, the name of the instance must
 # have "sm" in it for db_size = 1, "med" for db_size = 2, and "lrg" for
 # db_size = 3.
-instance_names = ["break-sm{}".format(db_name_version), "break-med{}".format(db_name_version), "break-lrg{}".format(db_name_version)]
+instance_names = [ f"break-sm{db_name_version}", f"break-med{db_name_version}", f"break-lrg{db_name_version}" ]
 
 if flag_create_db_instances:
     # Cloud SQL
@@ -236,7 +236,7 @@ if flag_create_db_instances:
     print("Starting to create Cloud Spanner instances\n")
 
     power_unit = [ "1", "4", "10" ]
-    spanner_descriptions = [ "Breaking Small{}".format(db_name_version), "Breaking Medium{}".format(db_name_version), "Breaking Large{}".format(db_name_version) ]
+    spanner_descriptions = [ f"Breaking Small{db_name_version}", f"Breaking Medium{db_name_version}", f"Breaking Large{db_name_version}" ]
 
     if not build_helpers.create_spanner_instances(instance_names, spanner_region, power_unit, spanner_descriptions):
         sys.exit(1)
@@ -251,7 +251,7 @@ if flag_create_db_instances:
 if flag_add_dbs_to_firestore:
     print("Starting to add all database resource meta data to Firestore\n")
  
-    db_add_endpoint = "{}/add".format(db_resource_url)
+    db_add_endpoint = f"{db_resource_url}/add"
     if not build_helpers.set_sql_db_resources(instance_names, db_add_endpoint):
         sys.exit(1)
 
@@ -376,6 +376,6 @@ if flag_deploy_dataflow:
 ## Final Instructions ##
 ########################
 
-print("The build script has successfully completed. The entry point for any front-end is our orchestrator service, which is currently running at:\n\n{}\n\nThe APIs for that entrance point can be found in the API_REFERENCE.txt file in the repo's root folder.".format(orchestrator_url))
+print(f"The build script has successfully completed. The entry point for any front-end is our orchestrator service, which is currently running at:\n\n{orchestrator_url}\n\nThe APIs for that entrance point can be found in the API_REFERENCE.txt file in the repo's root folder.")
 
 print("\n")
