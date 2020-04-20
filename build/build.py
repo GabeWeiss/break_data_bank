@@ -201,7 +201,7 @@ if flag_deploy_db_lease_service:
 
     print("Deploying database lease Cloud Run service\n")
 
-    #db_resource_url = build_helpers.deploy_db_resource_service(service_account, sql_region, project_id)
+    db_resource_url = build_helpers.deploy_db_resource_service(service_account, sql_region, project_id)
     if db_resource_url == None:
         sys.exit(1)
 
