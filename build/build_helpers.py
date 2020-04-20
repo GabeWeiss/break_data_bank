@@ -78,7 +78,7 @@ def enable_services():
 # - Kubernetes Engine Admin
 def create_service_account(project_id):
     sa_name = "break-service-test"
-    sa_process = subprocess.run(["gcloud iam service-accounts create {} --display-name \"{} service account\"".format(sa_name, sa_name)], shell=True, capture_output=True, text=True)
+    sa_process = subprocess.run([f"gcloud iam service-accounts create {sa_name} --display-name \"{sa_name} service account\""], shell=True, capture_output=True, text=True)
     if sa_process.returncode != 0:
         err = sa_process.stderr
         x = re.search("is the subject of a conflict", err)
@@ -87,13 +87,13 @@ def create_service_account(project_id):
             print (err)
             return None
 
-    full_name = "{}@{}.iam.gserviceaccount.com".format(sa_name, project_id)
+    full_name = f"{sa_name}@{project_id}.iam.gserviceaccount.com"
         # We need firebase and datastore at higher levels because
         # Firestore doesn't have gcloud support, so we need to do
         # everything via APIs rather than gcloud for it
     sa_roles = [ "cloudsql.client", "firebase.admin", "datastore.owner", "spanner.databaseUser" ]
     for role in sa_roles:
-        proc = subprocess.run(["gcloud projects add-iam-policy-binding {} --member serviceAccount:{} --role roles/{}".format(project_id, full_name, role)], shell=True, capture_output=True, text=True)
+        proc = subprocess.run([f"gcloud projects add-iam-policy-binding {project_id} --member serviceAccount:{full_name} --role roles/{role}"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
             err = proc.stderr
             x = re.search("is the subject of a conflict", err)
@@ -102,11 +102,12 @@ def create_service_account(project_id):
                 print (err)
                 return None
 
-    json_path = "{}/breaking-service-account.json".format(os.path.dirname(os.getcwd()))
+    current_dir = os.path.dirname(os.getcwd())
+    json_path = f"{current_dir}/breaking-service-account.json"
 
     if not os.path.exists(json_path):
         print("Downloading service account bearer token")
-        proc = subprocess.run(["gcloud iam service-accounts keys create {} --iam-account {}".format(json_path, full_name)], shell=True, capture_output=True, text=True)
+        proc = subprocess.run([f"gcloud iam service-accounts keys create {json_path} --iam-account {full_name}"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
             print("Wasn't able to download the service account bearer token")
             return None
@@ -120,7 +121,7 @@ def create_service_account(project_id):
     # in our own VPC
 def create_vpc():
     vpc_name = "breaking-vpc"
-    proc = subprocess.run(["gcloud compute networks create {}".format(vpc_name)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud compute networks create {vpc_name}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         err = proc.stderr
         x = re.search("already exists", err)
@@ -131,7 +132,7 @@ def create_vpc():
         else:
             print("WARNING: The VPC was already created. Beware the GKE cluster may fail to create later\n")
     allocation_name = "breaking"
-    proc = subprocess.run(["gcloud compute addresses create {} --global --purpose=VPC_PEERING --prefix-length=24 --network={}".format(allocation_name, vpc_name)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud compute addresses create {allocation_name} --global --purpose=VPC_PEERING --prefix-length=24 --network={vpc_name}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         err = proc.stderr
         x = re.search("already exists", err)
@@ -140,7 +141,7 @@ def create_vpc():
             print(err)
             return None
     else: # Only run the vpc-peerings if it's a new situation
-        proc = subprocess.run(["gcloud services vpc-peerings update --service=servicenetworking.googleapis.com  --network={}     --project=gweiss-simple-path --ranges={} --force".format(vpc_name, allocation_name)], shell=True, capture_output=True, text=True)
+        proc = subprocess.run([f"gcloud services vpc-peerings update --service=servicenetworking.googleapis.com  --network={vpc_name}     --project=gweiss-simple-path --ranges={allocation_name} --force"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
             err = proc.stderr
             x = re.search("already exists", err)
@@ -174,7 +175,7 @@ def fetch_sql_region(arg_region, envvar):
         # Finally we'll go for an environment variable they can set if they don't want to use a default region
     default_region = os.environ.get(envvar)
     if default_region == None:
-        print("\nWasn't able to determine a region to start our Cloud Run services.\nPlease either set a region using 'gcloud config set run/region <region>'\nor set an environment variable '{}' with the name of the region.\nEnsure that the region is a valid one. Regions can be found by running\n'gcloud compute regions list'.\n".format(envvar))
+        print(f"\nWasn't able to determine a region to start our Cloud Run services.\nPlease either set a region using 'gcloud config set run/region <region>'\nor set an environment variable '{envvar}' with the name of the region.\nEnsure that the region is a valid one. Regions can be found by running\n'gcloud compute regions list'.\n")
     return default_region
 
 def extrapolate_spanner_region(sql_region):
@@ -197,7 +198,7 @@ def extrapolate_spanner_region(sql_region):
     if x:
         return "nam6"
 
-    print("Couldn't figure out how to extrapolate from the region: '{}'".format(sql_region))
+    print(f"Couldn't figure out how to extrapolate from the region: '{sql_region}'")
     return None
 
 def extrapolate_firestore_region(sql_region):
@@ -233,7 +234,7 @@ def extrapolate_firestore_region(sql_region):
     if x:
         return "us-east1"
 
-    print("Couldn't figure out how to extrapolate from the region: '{}'".format(sql_region))
+    print(f"Couldn't figure out how to extrapolate from the region: '{sql_region}'")
     return None
 
 def fetch_project_id(envvar):
@@ -255,7 +256,7 @@ def fetch_pubsub_topic(pubsub, envvar):
     return None
 
 def create_pubsub_topic(pubsub_topic):
-    proc = subprocess.run(["gcloud pubsub topics create {}".format(pubsub_topic)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud pubsub topics create {pubsub_topic}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         err = proc.stderr
         x = re.search("Resource already exists", err)
@@ -276,9 +277,9 @@ def create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc):
         # a micro instance (.6 GiB RAM and 1 vCPU) as our first instace
         db_create_process = None
         if cpu == "1":
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network={}".format(name, sql_region, "db-f1-micro", vpc)], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --tier=db-f1-micro --network={vpc}"], shell=True, capture_output=True, text=True)
         else:
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network={}".format(name, sql_region, cpu, ram, vpc)], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --cpu={cpu} --memory={ram} --network={vpc}"], shell=True, capture_output=True, text=True)
 
         if db_create_process.returncode != 0:
             err = db_create_process.stderr
@@ -288,11 +289,11 @@ def create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc):
                 # and perhaps something went wrong, so they're retrying
             x = re.search("is the subject of a conflict", err)
             if not x:
-                print("There was a problem creating instance: '{}'".format(name))
+                print(f"There was a problem creating instance: '{name}'")
                 print (err)
                 return False
 
-        print(" Instance '{}' created with '{}' CPU(s) and '{}' RAM.".format(name, cpu, ram))
+        print(f" Instance '{name}' created with '{cpu}' CPU(s) and '{ram}' RAM.")
         i = i + 1
 
     print("")
@@ -301,7 +302,7 @@ def create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc):
 def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc):
     i = 0
     for short_name in instance_names:
-        name = "{}-r".format(short_name)
+        name = f"{short_name}-r"
         cpu = vm_cpus[i]
         ram = vm_ram[i]
 
@@ -311,9 +312,9 @@ def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vp
         # a micro instance (.6 GiB RAM and 1 vCPU) as our first instace
         db_create_process = None
         if cpu == "1":
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --tier={} --network={}".format(name, sql_region, "db-f1-micro", vpc)], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --tier=db-f1-micro --network={vpc}"], shell=True, capture_output=True, text=True)
         else:
-            db_create_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --cpu={} --memory={} --network={}".format(name, sql_region, cpu, ram, vpc)], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --cpu={cpu} --memory={ram} --network={vpc}"], shell=True, capture_output=True, text=True)
 
         if db_create_process.returncode != 0:
             err = db_create_process.stderr
@@ -323,7 +324,7 @@ def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vp
                 # and perhaps something went wrong, so they're retrying
             x = re.search("is the subject of a conflict", err)
             if not x:
-                print("There was a problem creating instance: '{}'".format(name))
+                print(f"There was a problem creating instance: '{name}'")
                 print (err)
                 return False
 
@@ -332,12 +333,8 @@ def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vp
             # currently, it should grab the tier of the master instance which
             # is fine. We SHOULD be able to specify different specs for the replica
             # than the master, but currently we can't
-        replica_name = "{}-replica".format(name)
-        replica_process = None
-        if cpu == "1":
-            replica_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --network={} --master-instance-name={}".format(replica_name, sql_region, vpc, name)], shell=True, capture_output=True, text=True)
-        else:
-            replica_process = subprocess.run(["gcloud beta sql instances create {} --database-version=POSTGRES_11 --region={} --no-backup --no-assign-ip --root-password=postgres --network={} --master-instance-name={}".format(replica_name, sql_region, vpc, name)], shell=True, capture_output=True, text=True)
+        replica_name = f"{name}-replica"
+        replica_process = subprocess.run([f"gcloud beta sql instances create {replica_name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --network={vpc} --master-instance-name={name}"], shell=True, capture_output=True, text=True)
         
         if replica_process.returncode != 0:
             err = replica_process.stderr
@@ -347,11 +344,11 @@ def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vp
                 # and perhaps something went wrong, so they're retrying
             x = re.search("is the subject of a conflict", err)
             if not x:
-                print("There was a problem creating instance: '{}'".format(name))
+                print(f"There was a problem creating instance: '{name}'")
                 print (err)
                 return False
 
-        print(" Instance '{}' created with '{}' CPU(s) and '{}' RAM. With read replica: '{}'".format(name, cpu, ram, replica_name))
+        print(f" Instance '{name}' created with '{cpu}' CPU(s) and '{ram}' RAM. With read replica: '{replica_name}'")
         i = i + 1
 
     print("")
@@ -362,7 +359,7 @@ def create_spanner_instances(instance_names, spanner_region, nodes, spanner_desc
     for name in instance_names:
         node_count = nodes[i]
         description = spanner_descriptions[i]
-        proc = subprocess.run(["gcloud spanner instances create {} --nodes={} --config={} --description=\"{}\"".format(name, node_count, spanner_region, description)], shell=True, capture_output=True, text=True)
+        proc = subprocess.run([f"gcloud spanner instances create {name} --nodes={node_count} --config={spanner_region} --description=\"{description}\""], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
             err = proc.stderr
                 # This particular error is given when the instance
@@ -371,11 +368,11 @@ def create_spanner_instances(instance_names, spanner_region, nodes, spanner_desc
                 # and perhaps something went wrong, so they're retrying
             x = re.search("is the subject of a conflict", err)
             if not x:
-                print("There was a problem creating instance: '{}'".format(name))
+                print(f"There was a problem creating instance: '{name}'")
                 print (err)
                 return False
 
-        print(" Spanner instance '{}' created with {} nodes".format(name, node_count))
+        print(f" Spanner instance '{name}' created with {node_count} nodes")
         i = i + 1
 
     print("")
@@ -383,7 +380,7 @@ def create_spanner_instances(instance_names, spanner_region, nodes, spanner_desc
 
 def run_firestore_create(region):
     # Alpha has a create database in gcloud, we'll go ahead and dogfood this...
-    proc = subprocess.run(["gcloud alpha firestore databases create --region={}".format(region)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud alpha firestore databases create --region={region}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         return proc.stderr, False
 
@@ -398,7 +395,7 @@ def initialize_firestore(project_id, region):
             print(proc.stderr)
             return False
 
-        proc = subprocess.run(["gcloud app create --region={}".format(region)], shell=True, capture_output=True, text=True)
+        proc = subprocess.run([f"gcloud app create --region={region}"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
             print("   Wasn't able to create our default app engine application to enable Firestore database creation.")
             print(proc.stderr)
@@ -422,7 +419,7 @@ def initialize_firestore(project_id, region):
     # This is hacky as heck, but we need to be sure that Firebase, is also added
     # to the project, not just Firestore, because otherwise we can't deploy
     # Firestore rules
-    proc = subprocess.run(["firebase projects:addfirebase {}".format(project_id)], shell=True, text=True, capture_output=True, cwd=firestore_dir)
+    proc = subprocess.run([f"firebase projects:addfirebase {project_id}"], shell=True, text=True, capture_output=True, cwd=firestore_dir)
     if proc.returncode != 0:
         debug_proc = subprocess.run(["tail -n 20 firebase-debug.log"], shell=True, text=True, capture_output=True, cwd=firestore_dir)
         if debug_proc.returncode != 0:
@@ -440,14 +437,14 @@ def initialize_firestore(project_id, region):
     print("Press return to continue...")
     y = input()
 
-    proc = subprocess.run(["firebase init firestore -P {}".format(project_id)], shell=True, text=True, cwd=firestore_dir)
+    proc = subprocess.run([f"firebase init firestore -P {project_id}"], shell=True, text=True, cwd=firestore_dir)
     if proc.returncode != 0:
         print("   Wasn't able to initialize firestore for our project.")
         print(proc.stderr)
         return False
 
     try:
-        copyfile('firestore.indexes', "{}/firestore.indexes.json".format(firestore_dir))
+        copyfile('firestore.indexes', f"{firestore_dir}/firestore.indexes.json")
     except:
         print("   Wasn't able to copy our index files")
         return False
@@ -481,7 +478,7 @@ def add_db(url, database_type, database_size, resource_id, connection_string, re
         db_name = "cloud sql w/ replica"
     elif database_type == CLOUD_SPANNER:
         db_name = "cloud spanner"
-    print(" Added {} instance of size {}".format(db_name, database_size))
+    print(f" Added {db_name} instance of size {database_size}")
     return True
 
 # Make use of the db-lease service to add our dbs to Firestore
@@ -506,7 +503,7 @@ def set_sql_db_resources(names, url):
             database_size = 3
 
         if database_size == -1:
-            print("   Couldn't figure out what size our database is ({}), so it won't be added to our Firestore metadata.".format(name))
+            print(f"   Couldn't figure out what size our database is ({name}), so it won't be added to our Firestore metadata.")
             return False
 
         resource_id = None
@@ -514,7 +511,7 @@ def set_sql_db_resources(names, url):
         replica_ip = None
 
         # First we handle Cloud SQL
-        info_proc = subprocess.run(["gcloud sql instances list | grep \"{} \"".format(name)], shell=True, capture_output=True, text=True)
+        info_proc = subprocess.run([f"gcloud sql instances list | grep \"{name} \""], shell=True, capture_output=True, text=True)
         if info_proc.returncode != 0:
             print("   There was a problem fetching the main sql instance info")
             print(info_proc.stderr)
@@ -533,14 +530,14 @@ def set_sql_db_resources(names, url):
             return False
 
         # Next we handle the replica
-        master_proc = subprocess.run(["gcloud sql instances list | grep \"{}-r \"".format(name)], shell=True, capture_output=True, text=True)
+        master_proc = subprocess.run([f"gcloud sql instances list | grep \"{name}-r \""], shell=True, capture_output=True, text=True)
         if master_proc.returncode != 0:
             print("   There was a problem fetching the replica info")
             print(master_proc.stderr)
             return False
         master_out = master_proc.stdout
 
-        replica_proc = subprocess.run(["gcloud sql instances list | grep \"{}-r-replica \"".format(name)], shell=True, capture_output=True, text=True)
+        replica_proc = subprocess.run([f"gcloud sql instances list | grep \"{name}-r-replica \""], shell=True, capture_output=True, text=True)
         if replica_proc.returncode != 0:
             print("   There was a problem fetching the replica info")
             print(replica_proc.stderr)
@@ -575,7 +572,7 @@ def set_spanner_db_resources(names, url):
         elif re.search("lrg", name):
             database_size = 3
 
-        proc = subprocess.run(["gcloud spanner instances list | grep {}".format(name)], shell=True, capture_output=True, text=True)
+        proc = subprocess.run([f"gcloud spanner instances list | grep {name}"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
             print("   Wasn't able to fetch our spanner instance list")
             print(proc.stderr)
@@ -615,14 +612,14 @@ def deploy_db_resource_container(project_id):
         return False
     print(" Built the db-lease-container")
 
-    proc = subprocess.run(["docker tag breaking-db-lease gcr.io/{}/breaking-db-lease".format(project_id)], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"docker tag breaking-db-lease gcr.io/{project_id}/breaking-db-lease"], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't tag the db-lease container.\n")
         print(proc.stderr)
         return False
     print(" Tagged the db-lease-container")
 
-    proc = subprocess.run(["docker push gcr.io/{}/breaking-db-lease".format(project_id)], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"docker push gcr.io/{project_id}/breaking-db-lease"], cwd='../db-lease-container', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't push the db-lease container.\n")
         print(proc.stderr)
@@ -640,14 +637,14 @@ def deploy_load_gen_script_container(project_id, version):
         return False
     print(" Built the load-gen-script container")
 
-    proc = subprocess.run(["docker tag breaking-loadgen-script gcr.io/{}/breaking-loadgen:{}".format(project_id, version)], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"docker tag breaking-loadgen-script gcr.io/{project_id}/breaking-loadgen:{version}"], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't tag the load-gen-script container.\n")
         print(proc.stderr)
         return False
     print(" Tagged the load-gen-script container")
 
-    proc = subprocess.run(["docker push gcr.io/{}/breaking-loadgen".format(project_id)], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"docker push gcr.io/{project_id}/breaking-loadgen"], cwd='../load-gen-script', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't push the load-gen-script container.\n")
         print(proc.stderr)
@@ -657,26 +654,11 @@ def deploy_load_gen_script_container(project_id, version):
     print("")
     return True
 
-def replace_version_string(version):
-    try:
-        filename = '../load-gen-service/config.yaml'
-        with open(filename, 'r') as file:
-            filedata = file.read()
-
-        # Replace our version string in the config file
-        filedata = re.sub(':v[0-9]+\.[0-9]+\.[0-9]+', ':{}'.format(version), filedata)
-
-        with open(filename, 'w') as file:
-            file.write(filedata)
-    except:
-        return False
-    return True
-
 def adjust_config_yaml(project, pubsub, version, k8s_sa):
     filename = '../load-gen-service/config.yaml'
     filedata = None
     try:
-        with open("{}.example".format(filename), 'r') as file:
+        with open(f"{filename}.example", 'r') as file:
             filedata = file.read()
     except:
         print("Couldn't read the load gen service config yaml example file\n")
@@ -706,14 +688,14 @@ def deploy_load_gen_service_container(project_id):
         return False
     print("Built the loadgen-service container")
 
-    proc = subprocess.run(["docker tag breaking-loadgen-service gcr.io/{}/breaking-loadgen-service".format(project_id)], cwd='../load-gen-service', shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"docker tag breaking-loadgen-service gcr.io/{project_id}/breaking-loadgen-service"], cwd='../load-gen-service', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("Couldn't tag the loadgen-service container.\n")
         print(proc.stderr)
         return False
     print("Tagged the loadgen-service container")
 
-    proc = subprocess.run(["docker push gcr.io/{}/breaking-loadgen-service".format(project_id)], cwd='../load-gen-service', shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"docker push gcr.io/{project_id}/breaking-loadgen-service"], cwd='../load-gen-service', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("Couldn't push the loadgen-service container.\n")
         print(proc.stderr)
@@ -731,14 +713,14 @@ def deploy_orchestrator_container(project_id):
         return False
     print("Built the orchestrator container")
 
-    proc = subprocess.run(["docker tag breaking-orchestrator gcr.io/{}/breaking-orchestrator".format(project_id)], cwd='../orchestrator-container', shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"docker tag breaking-orchestrator gcr.io/{project_id}/breaking-orchestrator"], cwd='../orchestrator-container', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("Couldn't tag the orchestrator container.\n")
         print(proc.stderr)
         return False
     print("Tagged the orchestrator container")
 
-    proc = subprocess.run(["docker push gcr.io/{}/breaking-orchestrator".format(project_id)], cwd='../orchestrator-container', shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"docker push gcr.io/{project_id}/breaking-orchestrator"], cwd='../orchestrator-container', shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("Couldn't push the orchestrator container.\n")
         print(proc.stderr)
@@ -749,7 +731,7 @@ def deploy_orchestrator_container(project_id):
     return True
 
 def deploy_db_resource_service(service_account, region, project_id):
-    proc = subprocess.run(["gcloud run deploy breaking-db-lease --platform=managed --port=5000 --allow-unauthenticated --service-account={} --region={} --image=gcr.io/{}/breaking-db-lease".format(service_account, region, project_id)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud run deploy breaking-db-lease --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --image=gcr.io/{project_id}/breaking-db-lease"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't start the db-lease Cloud Run service")
         print(proc.stderr)
@@ -767,14 +749,14 @@ def deploy_db_resource_service(service_account, region, project_id):
     return db_lease_url
 
 def deploy_run_services(service_account, region, project_id, version):
-    proc = subprocess.run(["gcloud run deploy breaking-load-service --platform=managed --port=5000 --allow-unauthenticated --service-account={} --region={} --image=gcr.io/{}/breaking-loadgen-service".format(service_account, region, project_id)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud run deploy breaking-load-service --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --image=gcr.io/{project_id}/breaking-loadgen-service"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't start the load gen Cloud Run service")
         print(proc.stderr)
         return False
     print(" Started the load gen Cloud Run service")
 
-    proc = subprocess.run(["gcloud run deploy breaking-orchestrator --platform=managed --port=5000 --allow-unauthenticated --service-account={} --region={} --image=gcr.io/{}/breaking-orchestrator".format(service_account, region, project_id)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud run deploy breaking-orchestrator --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --image=gcr.io/{project_id}/breaking-orchestrator"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't start the orchestrator Cloud Run service")
         print(proc.stderr)
@@ -794,7 +776,7 @@ def get_orchestrator_url():
 def deploy_k8s(region, project, vpc):
     k8s_name = "breaking-cluster"
 
-    proc = subprocess.run(["gcloud container clusters create {} --num-nodes=5 --region={} --enable-ip-alias --workload-pool={}.svc.id.goog --network={}".format(k8s_name, region, project, vpc)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud container clusters create {k8s_name} --num-nodes=5 --region={region} --enable-ip-alias --workload-pool={project}.svc.id.goog --network={vpc}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         err = proc.stderr
         x = re.search("lready exists", err)
@@ -804,7 +786,7 @@ def deploy_k8s(region, project, vpc):
             return None
 
 
-    ip_proc = subprocess.run(["gcloud container clusters list | grep {}".format(k8s_name)], shell=True, capture_output=True, text=True)
+    ip_proc = subprocess.run([f"gcloud container clusters list | grep {k8s_name}"], shell=True, capture_output=True, text=True)
     if ip_proc.returncode != 0:
         return None, None
     try:
@@ -815,9 +797,9 @@ def deploy_k8s(region, project, vpc):
 
 def verify_kubectl(ip):
     try:
-        proc = subprocess.run(["kubectl cluster-info | grep {}".format(ip)], shell=True, capture_output=True, text=True, check=True)
+        proc = subprocess.run([f"kubectl cluster-info | grep {ip}"], shell=True, capture_output=True, text=True, check=True)
     except:
-        print("kubectl doesn't appear to be configured properly. Please configure kubectl to point at the new created cluster here: '{}' and re-run the build script".format(ip))
+        print(f"kubectl doesn't appear to be configured properly. Please configure kubectl to point at the new created cluster here: '{ip}' and re-run the build script")
         return False
     return True
 
@@ -826,7 +808,7 @@ def adjust_k8s_service_account_yaml(service_account):
     k8s_account = "breaking-k8s-service-account"
     filedata = None
     try:
-        with open("{}.example".format(filename), 'r') as file:
+        with open(f"{filename}.example", 'r') as file:
             filedata = file.read()
     except:
         print("Couldn't read the service account yaml example file\n")
@@ -856,7 +838,7 @@ def read_k8s_service_account_yaml():
     return True
 
 def bind_k8s_service_accounts(project, k8s_sa, gcp_sa):
-    cmd = 'gcloud iam service-accounts add-iam-policy-binding --role roles/iam.workloadIdentityUser --member \"serviceAccount:{}.svc.id.goog[default/{}]\" {}'.format(project, k8s_sa, gcp_sa)
+    cmd = f'gcloud iam service-accounts add-iam-policy-binding --role roles/iam.workloadIdentityUser --member \"serviceAccount:{project}.svc.id.goog[default/{k8s_sa}]\" {gcp_sa}'
     proc = subprocess.run([cmd], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("Wasn't able to bind your GCP service account to the k8s service account")
@@ -864,14 +846,14 @@ def bind_k8s_service_accounts(project, k8s_sa, gcp_sa):
         return False
 
     # Verify that the account got bound correctly
-    verify = subprocess.run(["gcloud iam service-accounts get-iam-policy {}".format(gcp_sa)], shell=True, capture_output=True, text=True)
+    verify = subprocess.run([f"gcloud iam service-accounts get-iam-policy {gcp_sa}"], shell=True, capture_output=True, text=True)
     if verify.returncode != 0:
         print("There was a problem verifying the iam policy binding")
         print(verify.stderr)
         return False
 
     out = verify.stdout
-    x = re.search("serviceAccount\:{}\.svc\.id\.goog\[default/{}\]".format(project, k8s_sa), out)
+    x = re.search(f"serviceAccount\:{project}\.svc\.id\.goog\[default/{k8s_sa}\]", out)
     if not x:
         print("Couldn't verify the iam policy binding")
         return False
@@ -879,8 +861,9 @@ def bind_k8s_service_accounts(project, k8s_sa, gcp_sa):
     return True
 
 def create_storage_bucket(project, region, envvar):
-    bucket_name = "gs://breaking-tmp-{}/".format(int(round(time.time() * 1000)))
-    proc = subprocess.run(["gsutil mb -p {} -c STANDARD -l {} -b on {}".format(project, region, bucket_name)], shell=True, capture_output=True, text=True)
+    time_hash = int(round(time.time() * 1000))
+    bucket_name = f"gs://breaking-tmp-{time_hash}/"
+    proc = subprocess.run([f"gsutil mb -p {project} -c STANDARD -l {region} -b on {bucket_name}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("There was a problem creating the Dataflow temporary staging bucket")
         print (proc.stderr)
@@ -913,7 +896,7 @@ def deploy_dataflow():
     # that for confirmation that it's working. Later, once I confirm
     # setRegion working/not working, I can filter down further by region
     dataflow_jobname = "breakingdatatransactions"
-    proc = subprocess.run(['gcloud dataflow jobs list | grep "Running\|Not Started" | grep {}'.format(dataflow_jobname)], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f'gcloud dataflow jobs list | grep "Running\|Not Started" | grep {dataflow_jobname}'], shell=True, capture_output=True, text=True)
     # Interesting side-effect(?), when gcloud * list doesn't return any
     # results, it exits with an error code. So no need to check the results
     # of the list at all, only need the return code
