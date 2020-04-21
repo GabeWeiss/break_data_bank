@@ -581,7 +581,7 @@ def deploy_containers(project_id, version):
     if not deploy_load_gen_script_container(project_id, version):
         return False
 
-    if not deploy_load_gen_service_container(project_id, version):
+    if not deploy_load_gen_service_container(project_id):
         return False
 
     if not deploy_orchestrator_container(project_id):
@@ -716,21 +716,25 @@ def deploy_orchestrator_container(project_id):
     return True
 
 def deploy_db_resource_service(service_account, region, project_id):
-    proc = subprocess.run([f"gcloud run deploy breaking-db-lease --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --image=gcr.io/{project_id}/breaking-db-lease"], shell=True, capture_output=True, text=True)
+    service_name = "breaking-db-lease"
+    proc = subprocess.run([f"gcloud run deploy {service_name} --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --image=gcr.io/{project_id}/breaking-db-lease"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't start the db-lease Cloud Run service")
         print(proc.stderr)
         return None
 
     db_lease_url = None
-    # I hate this...it's another case where user-useful information is being
-    # put out on stderr, rather than stdout.
-    out = proc.stderr
-    x = re.search("percent of traffic at (.*)\n", out)
+    proc = subprocess.run([f"gcloud run services list --platform managed | grep {service_name}"], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("   Couldn't fetch our service url")
+        return None
+    out = proc.stdout
+    x = re.search("(http[a-z\.\-\/\:]*)", out)
     if x != None:
         db_lease_url = x.group(1)
     if db_lease_url != None:
         print(" Started the db-lease Cloud Run service")
+
     return db_lease_url
 
 def deploy_run_services(service_account, region, project_id, version):
@@ -754,6 +758,7 @@ def deploy_run_services(service_account, region, project_id, version):
 def get_orchestrator_url():
     proc = subprocess.run(["gcloud run services list --platform=managed | grep breaking-orchestrator"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
+        print("   Couldn't fetch our orchestrator URL")
         return None
     url = proc.stdout.split()[3]
     return url
