@@ -70,7 +70,8 @@ if flag_authenticate_gcloud:
 ##################################
 
 if flag_authorize_gcloud_docker:
-    print("Since we're using Container Registry for our containers, we need to authorize gcloud with docker. Replying 'yes' will add docker credHelper entry to the configuration file to register gcloud, allowing us to push to Google Container Registry.\n")
+
+    print("Configuring Docker and gcloud to play nicely together.")
 
     if not build_helpers.auth_docker():
         sys.exit(1)
