@@ -16,16 +16,16 @@ pubsub_envvar = "BREAKING_PUBSUB"
 # Broadly speaking, this is for debugging purposes, and you shouldn't
 # change any of these values. If you don't wish to do any of the pieces,
 # set the variable to 0
-flag_verify_prerequisites               = 0
-flag_authenticate_gcloud                = 0
-flag_authorize_gcloud_docker            = 0
-flag_enable_gcp_services                = 0
+flag_verify_prerequisites               = 1
+flag_authenticate_gcloud                = 1
+flag_authorize_gcloud_docker            = 1
+flag_enable_gcp_services                = 1
 flag_setup_and_fetch_service_account    = 1
-flag_setup_firestore                    = 0
+flag_setup_firestore                    = 1
 flag_create_vpc                         = 1
-flag_create_pubsub                      = 0
+flag_create_pubsub                      = 1
 flag_deploy_db_lease_service            = 1
-flag_create_db_instances                = 0
+flag_create_db_instances                = 1
 flag_add_dbs_to_firestore               = 1
 flag_build_and_deploy_containers        = 1
 flag_deploy_cloud_run_services          = 1
