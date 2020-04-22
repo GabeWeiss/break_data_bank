@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import json
 import os
 import re
 import requests
@@ -715,9 +716,72 @@ def deploy_orchestrator_container(project_id):
     print("")
     return True
 
+# Ret values represent ready, and fail states. E.g. False, False means
+# the indexes are not ready, but there was no errors in retrieving the state.
+# False, True means there was a problem getting the state information
+# True, False means all indexes have been created and there were no errors
+# True, True is right out. That's just weird.
+def are_firestore_indexes_ready(sleep_time):
+    proc = subprocess.run([f"gcloud alpha firestore indexes composite list --format=flattened"], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("There was a problem fetching the firestore indexes")
+        print(proc.stderr)
+        return False, True
+
+    out = proc.stdout
+    entries = out.split('---')
+    for entry in entries:
+        collection_match = re.search("\/collectionGroups\/resources\/indexes", entry)
+
+        if not collection_match:
+            print("Didn't match collection 'resources', moving on\n")
+            continue
+
+        state_match = re.search("state\:[\s]+([A-Z]+)\n", entry)
+        if not state_match:
+            print("Couldn't match our index state.")
+            continue
+
+        state = state_match.group(1)
+        if state == "CREATING":
+            return False, False
+
+    return True, False
+
 def deploy_db_resource_service(service_account, region, project_id):
     service_name = "breaking-db-lease"
-    proc = subprocess.run([f"gcloud run deploy {service_name} --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --image=gcr.io/{project_id}/breaking-db-lease"], shell=True, capture_output=True, text=True)
+    sleep_time = 10 # start at a 10 second retry
+    ready = False
+    # While our firestore indexes aren't ready, we're going to do an
+    # exponential backoff retry on checking for 5 minutes. If we go
+    # past that, go ahead and fail for real
+    while ready == False:
+        ready, fail = are_firestore_indexes_ready(sleep_time)
+        if fail:
+            return None
+
+        if ready == False:
+            print(f"Firestore indexes aren't ready yet, waiting {sleep_time} seconds to try again.")
+            time.sleep(sleep_time)
+            sleep_time = sleep_time * 2
+            # Set currently to 10s, 20s, 40s, 1:20, 2:40, 5:20
+            # If it takes longer than that, error out.
+            if sleep_time > 360:
+                print("   Firstore indexes never appear to have gotten set. You can check manually for when they're done by running:\n\ngcloud alpha firestore indexes composite list --format=flattened\n\nAnd you should get back something that doesn't look like two empty values. If you don't see that, you should be able to check the progress in the console or by re-running that command. Once it's all set, re-run the script and it should get past this point.\n")
+                return None
+
+    return None
+
+### Looks like we're having issues project related to being able to do this, and it's
+### Only a warning, not an error... Not sure what the real-world impact of this is.
+
+#    proc = subprocess.run([f"gcloud beta run services add-iam-policy-binding --region={region} --member=allUsers --role=roles/run.invoker {service_name}"])
+#    if proc.returncode != 0:
+#        print("   Had a problem creating the db-lease service account binding.")
+#        print(proc.stderr)
+#        return None
+
+    proc = subprocess.run([f"gcloud run deploy {service_name} --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --platform managed --image=gcr.io/{project_id}/breaking-db-lease"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't start the db-lease Cloud Run service")
         print(proc.stderr)
