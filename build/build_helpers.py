@@ -770,8 +770,6 @@ def deploy_db_resource_service(service_account, region, project_id):
                 print("   Firstore indexes never appear to have gotten set. You can check manually for when they're done by running:\n\ngcloud alpha firestore indexes composite list --format=flattened\n\nAnd you should get back something that doesn't look like two empty values. If you don't see that, you should be able to check the progress in the console or by re-running that command. Once it's all set, re-run the script and it should get past this point.\n")
                 return None
 
-    return None
-
 ### Looks like we're having issues project related to being able to do this, and it's
 ### Only a warning, not an error... Not sure what the real-world impact of this is.
 
