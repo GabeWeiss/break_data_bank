@@ -87,7 +87,7 @@ def create_service_account(project_id):
         # We need firebase and datastore at higher levels because
         # Firestore doesn't have gcloud support, so we need to do
         # everything via APIs rather than gcloud for it
-    sa_roles = [ "cloudsql.client", "firebase.admin", "datastore.owner", "spanner.databaseUser", "dataflow.developer" ]
+    sa_roles = [ "cloudsql.client", "firebase.admin", "datastore.owner", "spanner.databaseUser", "dataflow.admin" ]
     for role in sa_roles:
         proc = subprocess.run([f"gcloud projects add-iam-policy-binding {project_id} --member serviceAccount:{full_name} --role roles/{role}"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
@@ -729,7 +729,6 @@ def are_firestore_indexes_ready(sleep_time):
         return False, True
 
     out = proc.stdout
-
     entries = out.split('---')
     for entry in entries:
         collection_match = re.search("\/collectionGroups\/resources\/indexes", entry)
@@ -755,30 +754,19 @@ def are_firestore_indexes_ready(sleep_time):
         return False, True
 
     out = proc.stdout
-
     entries = out.split('---')
     for entry in entries:
-        collection_match = re.search("\/collectionGroups\/resources\/indexes", entry)
+        collection_match = re.search("\/collectionGroups\/resources\/fields", entry)
 
         if not collection_match:
             print(f"---\n{entry}\---")
             print("Didn't match collection 'resources', moving on\n\n")
             continue
 
-# DEBUGGING
-        print(entry)
-        print("------------------------------------")
-############
-
         # There's several lines in the fields indexes that could all be CREATING
         # so we need to break down (yes, I know, n^2 it's fine)
         lines = entry.split("\n")
         for line in lines:
-
-# DEBUGGING
-            print (f"\nline\n")
-###########
-
             state_match = re.search("state\:[\s]+([A-Z]+)\n", entry)
             if not state_match:
                 print("Couldn't match our index state.")
@@ -787,10 +775,6 @@ def are_firestore_indexes_ready(sleep_time):
             state = state_match.group(1)
             if state == "CREATING":
                 return False, False
-
-# DEBUGGING
-        print("-----------------------------------")
-###########
 
     return True, False
 
