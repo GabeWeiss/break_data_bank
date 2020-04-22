@@ -56,7 +56,7 @@ def auth_docker():
     return True
 
 def enable_services():
-    services_process = subprocess.run(["gcloud services enable run.googleapis.com iam.googleapis.com sqladmin.googleapis.com container.googleapis.com firestore.googleapis.com pubsub.googleapis.com dataflow.googleapis.com containerregistry.googleapis.com spanner.googleapis.com sql-component.googleapis.com storage-component.googleapis.com servicenetworking.googleapis.com"], shell=True, capture_output=True, text=True)
+    services_process = subprocess.run(["gcloud services enable run.googleapis.com iam.googleapis.com sqladmin.googleapis.com container.googleapis.com firestore.googleapis.com pubsub.googleapis.com dataflow.googleapis.com containerregistry.googleapis.com spanner.googleapis.com sql-component.googleapis.com storage-component.googleapis.com servicenetworking.googleapis.com compute.googleapis.com"], shell=True, capture_output=True, text=True)
     if services_process.returncode != 0:
         print("There was a problem enabling GCP services")
         print(services_process.stderr)
@@ -724,16 +724,18 @@ def deploy_orchestrator_container(project_id):
 def are_firestore_indexes_ready(sleep_time):
     proc = subprocess.run([f"gcloud alpha firestore indexes composite list --format=flattened"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
-        print("There was a problem fetching the firestore indexes")
+        print("There was a problem fetching the firestore composite indexes")
         print(proc.stderr)
         return False, True
 
     out = proc.stdout
+
     entries = out.split('---')
     for entry in entries:
         collection_match = re.search("\/collectionGroups\/resources\/indexes", entry)
 
         if not collection_match:
+            print(f"---\n{entry}\---\n")
             print("Didn't match collection 'resources', moving on\n")
             continue
 
@@ -745,6 +747,50 @@ def are_firestore_indexes_ready(sleep_time):
         state = state_match.group(1)
         if state == "CREATING":
             return False, False
+
+    proc = subprocess.run([f"gcloud alpha firestore indexes fields list --format=flattened"], shell=True, capture_output=True, text=True)
+    if proc.returncode != 0:
+        print("There was a problem fetching the firestore field indexes")
+        print(proc.stderr)
+        return False, True
+
+    out = proc.stdout
+
+    entries = out.split('---')
+    for entry in entries:
+        collection_match = re.search("\/collectionGroups\/resources\/indexes", entry)
+
+        if not collection_match:
+            print(f"---\n{entry}\---")
+            print("Didn't match collection 'resources', moving on\n\n")
+            continue
+
+# DEBUGGING
+        print(entry)
+        print("------------------------------------")
+############
+
+        # There's several lines in the fields indexes that could all be CREATING
+        # so we need to break down (yes, I know, n^2 it's fine)
+        lines = entry.split("\n")
+        for line in lines:
+
+# DEBUGGING
+            print (f"\nline\n")
+###########
+
+            state_match = re.search("state\:[\s]+([A-Z]+)\n", entry)
+            if not state_match:
+                print("Couldn't match our index state.")
+                continue
+
+            state = state_match.group(1)
+            if state == "CREATING":
+                return False, False
+
+# DEBUGGING
+        print("-----------------------------------")
+###########
 
     return True, False
 
