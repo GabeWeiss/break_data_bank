@@ -20,6 +20,7 @@ def add_arguments(parser_obj):
     parser_obj.add_argument("-v", "--version", required=True,help="This is the version specified for the load-gen-script container. Should be in the format 'vx.x.x', e.g. v0.0.2")
     parser_obj.add_argument("-r", "--region", help="Specify a region to create your Cloud Run instances")
     parser_obj.add_argument("-p", "--pubsub", help="Specifies a pub/sub topic, defaults to 'breaking-test'", default="breaking-demo-topic")
+    parser_obj.add_argument("-c", "--cached", help="Sets up the demo to run in the cached mode instead of really running against the DBs", action='store_true')
 
 def verify_prerequisites():
     try:
@@ -92,8 +93,13 @@ def auth_docker():
         return False
     return True
 
-def enable_services():
-    services_process = subprocess.run(["gcloud services enable run.googleapis.com iam.googleapis.com sqladmin.googleapis.com container.googleapis.com firestore.googleapis.com pubsub.googleapis.com dataflow.googleapis.com containerregistry.googleapis.com spanner.googleapis.com sql-component.googleapis.com storage-component.googleapis.com servicenetworking.googleapis.com compute.googleapis.com"], shell=True, capture_output=True, text=True)
+def enable_services(run_cached):
+    services = "run.googleapis.com iam.googleapis.com sqladmin.googleapis.com container.googleapis.com firestore.googleapis.com pubsub.googleapis.com dataflow.googleapis.com containerregistry.googleapis.com spanner.googleapis.com sql-component.googleapis.com storage-component.googleapis.com servicenetworking.googleapis.com compute.googleapis.com"
+    cached_services = "run.googleapis.com iam.googleapis.com container.googleapis.com firestore.googleapis.com containerregistry.googleapis.com compute.googleapis.com"
+    if run_cached:
+        services = cached_services
+
+    services_process = subprocess.run([f"gcloud services enable {services}"], shell=True, capture_output=True, text=True)
     if services_process.returncode != 0:
         print("There was a problem enabling GCP services")
         print(services_process.stderr)
@@ -360,7 +366,7 @@ def run_firestore_create(region):
 
     return None
 
-def initialize_firestore(project_id, app_region, firestore_region):
+def initialize_firestore(project_id, app_region, firestore_region, run_cached):
     create_err = run_firestore_create(firestore_region)
     if create_err != None:
         x = re.search("You must first create an Google App Engine app", create_err)
@@ -407,27 +413,28 @@ def initialize_firestore(project_id, app_region, firestore_region):
             print(out)
             return False
 
-    print("\nThis next section may ask you to pick names for certain resources. Go ahead and just hit enter and leave the defaults the way they are.\n")
-    print("Press return to continue...")
-    y = input()
+    if not run_cached:
+        print("\nThis next section may ask you to pick names for certain resources. Go ahead and just hit enter and leave the defaults the way they are.\n")
+        print("Press return to continue...")
+        y = input()
 
-    proc = subprocess.run([f"firebase init firestore -P {project_id}"], shell=True, text=True, cwd=firestore_dir)
-    if proc.returncode != 0:
-        print("   Wasn't able to initialize firestore for our project.")
-        print(proc.stderr)
-        return False
+        proc = subprocess.run([f"firebase init firestore -P {project_id}"], shell=True, text=True, cwd=firestore_dir)
+        if proc.returncode != 0:
+            print("   Wasn't able to initialize firestore for our project.")
+            print(proc.stderr)
+            return False
 
-    try:
-        copyfile('firestore.indexes', f"{firestore_dir}/firestore.indexes.json")
-    except:
-        print("   Wasn't able to copy our index files")
-        return False
+        try:
+            copyfile('firestore.indexes', f"{firestore_dir}/firestore.indexes.json")
+        except:
+            print("   Wasn't able to copy our index files")
+            return False
 
-    proc = subprocess.run(["firebase deploy --only firestore:indexes"], shell=True, text=True, capture_output=True, cwd=firestore_dir)
-    if proc.returncode != 0:
-        print("   There was a problem creating our Firestore indexes.")
-        print(proc.stderr)
-        return False
+        proc = subprocess.run(["firebase deploy --only firestore:indexes"], shell=True, text=True, capture_output=True, cwd=firestore_dir)
+        if proc.returncode != 0:
+            print("   There was a problem creating our Firestore indexes.")
+            print(proc.stderr)
+            return False
 
     return True
 
@@ -556,13 +563,16 @@ def set_spanner_db_resources(names, url):
     print("")
     return True
 
-def deploy_containers(project_id, version):
+def deploy_loadgen_containers(project_id, version):
     if not deploy_load_gen_script_container(project_id, version):
         return False
 
     if not deploy_load_gen_service_container(project_id):
         return False
 
+    return True
+
+def deploy_orchestrator_container(project_id):
     if not deploy_orchestrator_container(project_id):
         return False
 
@@ -807,22 +817,25 @@ def deploy_db_resource_service(service_account, region, project_id):
 
     return db_lease_url
 
-def deploy_run_services(service_account, region, project_id, version):
-    proc = subprocess.run([f"gcloud run deploy breaking-load-service --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --image=gcr.io/{project_id}/breaking-loadgen-service"], shell=True, capture_output=True, text=True)
+def deploy_loadgen_run_services(service_account, run_region, project_id, version):
+    proc = subprocess.run([f"gcloud run deploy breaking-load-service --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={run_region} --image=gcr.io/{project_id}/breaking-loadgen-service"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't start the load gen Cloud Run service")
         print(proc.stderr)
         return False
     print(" Started the load gen Cloud Run service")
 
-    proc = subprocess.run([f"gcloud run deploy breaking-orchestrator --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --image=gcr.io/{project_id}/breaking-orchestrator"], shell=True, capture_output=True, text=True)
+    return True
+
+def deploy_orchestrator_run_services(service_account, run_region, project_id):
+    proc = subprocess.run([f"gcloud run deploy breaking-orchestrator --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={run_region} --image=gcr.io/{project_id}/breaking-orchestrator"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't start the orchestrator Cloud Run service")
         print(proc.stderr)
         return False
     print(" Started the orchestrator Cloud Run service")
-
     print("")
+
     return True
 
 def get_orchestrator_url():

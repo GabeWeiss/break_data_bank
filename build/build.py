@@ -18,28 +18,35 @@ pubsub_envvar = "BREAKING_PUBSUB"
 # Broadly speaking, this is for debugging purposes, and you shouldn't
 # change any of these values. If you don't wish to do any of the pieces,
 # set the variable to 0
-flag_verify_prerequisites               = 1
-flag_authenticate_gcloud                = 1
-flag_authorize_gcloud_docker            = 1
-flag_enable_gcp_services                = 1
-flag_setup_and_fetch_service_account    = 1
-flag_setup_firestore                    = 1
-flag_create_vpc                         = 1
-flag_create_pubsub                      = 1
-flag_deploy_db_lease_service            = 1
-flag_create_db_instances                = 1
-flag_add_dbs_to_firestore               = 1
-flag_build_and_deploy_containers        = 1
-flag_deploy_cloud_run_services          = 1
-flag_deploy_k8s_cluster                 = 1
-flag_deploy_dataflow                    = 1
-
-print("\nStarting demo deployment...\n")
+flag_verify_prerequisites                = 1
+flag_authenticate_gcloud                 = 1
+flag_authorize_gcloud_docker             = 1
+flag_enable_gcp_services                 = 1
+flag_setup_and_fetch_service_account     = 1
+flag_setup_firestore                     = 1
+flag_create_vpc                          = 1
+flag_create_pubsub                       = 1
+flag_deploy_db_lease_service             = 1
+flag_create_db_instances                 = 1
+flag_add_dbs_to_firestore                = 1
+flag_build_and_deploy_loadgen_containers = 1
+flag_build_and_deploy_orchestrator       = 1
+flag_deploy_cloud_run_services           = 1
+flag_deploy_k8s_cluster                  = 1
+flag_deploy_dataflow                     = 1
 
 # Argument handling before everything
 parser = argparse.ArgumentParser(description='This is a build script for the backend processes for the demo originally known as "Breaking the Data Bank". It shows off relative comparisons of load handling by Cloud SQL and Cloud Spanner.')
 build_helpers.add_arguments(parser)
 args = parser.parse_args()
+
+run_cached = args.cached
+
+print("\nStarting demo deployment...")
+if run_cached:
+    print("Setting up in cached mode.\n")
+else:
+    print("Setting up in full run mode.\n")
 
 # First validate the region they want to run the demo in
 if not build_helpers.validate_region(args.region):
@@ -90,7 +97,6 @@ if flag_authenticate_gcloud:
 ##################################
 
 if flag_authorize_gcloud_docker:
-
     print("Configuring Docker and gcloud to play nicely together.")
 
     time_tracker = current_time()
@@ -143,7 +149,7 @@ if flag_enable_gcp_services:
 
     # There are a number of services that we need in order to build
     # this demo. This call enables the necessary services in your project
-    if not build_helpers.enable_services():
+    if not build_helpers.enable_services(run_cached):
         sys.exit(1)
 
     time_tracker = round(current_time() - time_tracker, 2)
@@ -168,7 +174,7 @@ if flag_setup_firestore:
     print("Setting up Firestore")
     time_tracker = current_time()
 
-    if not build_helpers.initialize_firestore(project_id, app_region, firestore_region):
+    if not build_helpers.initialize_firestore(project_id, app_region, firestore_region, run_cached):
         sys.exit(1)
 
     time_tracker = round(current_time() - time_tracker, 2)
@@ -178,7 +184,7 @@ if flag_setup_firestore:
 ## Create a VPC for everything ##
 #################################
 
-if flag_create_vpc:
+if flag_create_vpc and not run_cached:
     print("Creating new VPC network")
     time_tracker = current_time()
 
@@ -193,7 +199,7 @@ if flag_create_vpc:
 ## Create Pub/Sub topic ##
 ##########################
 
-if flag_create_pubsub:
+if flag_create_pubsub and not run_cached:
     print("Creating Pub/Sub topic")
     time_tracker = current_time()
 
@@ -207,7 +213,7 @@ if flag_create_pubsub:
 ## Create Database instances ##
 ###############################
 
-if flag_deploy_db_lease_service:
+if flag_deploy_db_lease_service and not run_cached:
     # First we need to deploy our db-lease service because it manages adding our db metadata
     # to the Firestore instance
     print("Deploying database lease container\n")
@@ -235,7 +241,7 @@ db_name_version = "1"
 # db_size = 3.
 instance_names = [ f"break-sm{db_name_version}", f"break-med{db_name_version}", f"break-lrg{db_name_version}" ]
 
-if flag_create_db_instances:
+if flag_create_db_instances and not run_cached:
     # Cloud SQL
 
     print("Starting to create Cloud SQL instances (This takes awhile, don't panic)\n")
@@ -276,7 +282,7 @@ if flag_create_db_instances:
 ## Insert DB metadata into Firestore ##
 #######################################
 
-if flag_add_dbs_to_firestore:
+if flag_add_dbs_to_firestore and not run_cached:
     print("Starting to add all database resource meta data to Firestore\n")
     time_tracker = current_time()
 
@@ -295,7 +301,7 @@ if flag_add_dbs_to_firestore:
 ## Build and deploy rest of the containers ##
 #############################################
 
-if flag_build_and_deploy_containers:
+if flag_build_and_deploy_loadgen_containers and not run_cached:
     # We need to create our k8s service account yaml first, because
     # we need the service account name in our container's yaml configuration
     # This call ONLY creates the yaml file, it doesn't do anything with it
@@ -310,14 +316,25 @@ if flag_build_and_deploy_containers:
     time_tracker = round(current_time() - time_tracker, 2)
     print(f"   Generated config file in {time_tracker} seconds")
 
-    print("Starting to build and deploy demo microservice containers\n")
+    print("Starting to build and deploy loadgen microservice containers\n")
     time_tracker = current_time()
 
-    if not build_helpers.deploy_containers(project_id, args.version):
+    if not build_helpers.deploy_loadgen_containers(project_id, args.version):
         sys.exit(1)
 
     time_tracker = round(current_time() - time_tracker, 2)
-    print(f"  Finished building and deploying demo microservice containers in {time_tracker} seconds\n")
+    print(f"  Finished building and deploying loadgen microservice containers in {time_tracker} seconds\n")
+
+if flag_build_and_deploy_orchestrator:
+    print("Starting to build and deploy orchestrator microservice containers\n")
+    time_tracker = current_time()
+
+    if not build_helpers.deploy_orchestrator_container(project_id):
+        sys.exit(1)
+
+    time_tracker = round(current_time() - time_tracker, 2)
+    print(f"  Finished building and deploying orchestrator microservice containers in {time_tracker} seconds\n")
+
 
 ################################
 ## Deploly Cloud Run services ##
@@ -325,20 +342,25 @@ if flag_build_and_deploy_containers:
 
 orchestrator_url = None
 if flag_deploy_cloud_run_services:
-    print("Creating the config yaml file for the load gen service")
-    time_tracker = current_time()
+    if not run_cached:
+        print("Creating the config yaml file for the load gen service")
+        time_tracker = current_time()
 
-    if not build_helpers.adjust_config_yaml(project_id, pubsub_topic, args.version, k8s_service_account):
-        sys.exit(1)
+        if not build_helpers.adjust_config_yaml(project_id, pubsub_topic, args.version, k8s_service_account):
+            sys.exit(1)
 
-    time_tracker = round(current_time() - time_tracker, 2)
-    print(f"  Created in {time_tracker} seconds\n")
+        time_tracker = round(current_time() - time_tracker, 2)
+        print(f"  Created in {time_tracker} seconds\n")
 
     print("Starting to deploy Cloud Run services. This will take a bit for each one\n")
     time_tracker = current_time()
 
-    if not build_helpers.deploy_run_services(service_account, run_region, project_id, args.version):
-        sys.exit(1)
+    if not run_cached:
+        if not build_helpers.deploy_loadgen_run_services(service_account, run_region, project_id, args.version):
+            sys.exit(1)
+
+    if not build_helpers.deploy_orchestrator_run_services(service_account, run_region, project_id):
+            sys.exit(1)
 
     # Ultimately we need this for the end-user of the demo
     orchestrator_url = build_helpers.get_orchestrator_url()
@@ -352,7 +374,7 @@ if flag_deploy_cloud_run_services:
 ## Deploy the Kubernetes Cluster ##
 ###################################
 
-if flag_deploy_k8s_cluster:
+if flag_deploy_k8s_cluster and not run_cached:
     print("Deploying the Kubernetes cluster (another potentially lengthy wait)")
     time_tracker = current_time()
 
@@ -398,7 +420,7 @@ if flag_deploy_k8s_cluster:
 ## Deploy the Dataflow job ##
 #############################
 
-if flag_deploy_dataflow:
+if flag_deploy_dataflow and not run_cached:
     print("Creating the Dataflow staging bucket")
     time_tracker = current_time()
 
