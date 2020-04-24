@@ -92,7 +92,7 @@ public class BreakingDataTransactions {
     if (DEPLOY) {
         options.setRunner(DataflowRunner.class);
         options.setTempLocation(GlobalVars.gcsBucket);
-        //options.setRegion(GlobalVars.region);
+        options.setRegion(GlobalVars.region);
     }
 
     Pipeline p = Pipeline.create(options);

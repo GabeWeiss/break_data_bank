@@ -39,11 +39,48 @@ def verify_prerequisites():
         return False
     return True
 
+def validate_region(region):
+    if region == "usa":
+        return True
+    elif region == "emea":
+        return True
+    elif region == "apac":
+        return True
+
+    print("The three valid values for the demo's region are:\n usa\n emea\n apac")
+    return False
+
+# return is: 
+#   sql_region
+#   app_region
+#   firestore_region
+#   spanner_region
+#   run_region
+#   gke_region
+#   storage_region (also Dataflow region)
+def assign_regions(region):
+    if region == "usa":
+        return "us-west2", "us-west2", "us-west2", "nam6", "us-west1", "us-west2", "us-west1"
+    elif region == "emea":
+        return "europe-west1", "europe-west2", "eur3", "eur3", "europe-west1", "europe-west1", "europe-west1"
+    elif region == "apac":
+        return "asia-east2", "asia-east2", "asia-east2", "nam-eur-asia1", "asia-east1", "asia-east2", "asia-east1"
+    else:
+        return None
+
 def auth_gcloud():
     try:
         subprocess.run(["gcloud auth login", "--brief"], shell=True, check=True, capture_output=True)
     except:
         print("Couldn't authenticate gcloud")
+        return False
+    return True
+
+def auth_firebaseCLI():
+    try:
+        subprocess.run(["firebase login"], shell=True, check=True, capture_output=True)
+    except:
+        print("Couldn't authenticate firebase CLI")
         return False
     return True
 
@@ -87,7 +124,7 @@ def create_service_account(project_id):
         # We need firebase and datastore at higher levels because
         # Firestore doesn't have gcloud support, so we need to do
         # everything via APIs rather than gcloud for it
-    sa_roles = [ "cloudsql.client", "firebase.admin", "datastore.owner", "spanner.databaseUser", "dataflow.admin" ]
+    sa_roles = [ "cloudsql.client", "firebase.admin", "datastore.owner", "spanner.databaseUser", "dataflow.admin", "run.invoker" ]
     for role in sa_roles:
         proc = subprocess.run([f"gcloud projects add-iam-policy-binding {project_id} --member serviceAccount:{full_name} --role roles/{role}"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
@@ -173,65 +210,6 @@ def fetch_sql_region(arg_region, envvar):
     if default_region == None:
         print(f"\nWasn't able to determine a region to start our Cloud Run services.\nPlease either set a region using 'gcloud config set run/region <region>'\nor set an environment variable '{envvar}' with the name of the region.\nEnsure that the region is a valid one. Regions can be found by running\n'gcloud compute regions list'.\n")
     return default_region
-
-def extrapolate_spanner_region(sql_region):
-    x = re.search("^asia\-", sql_region)
-    if x:
-        return "nam-eur-asia1"
-    x = re.search("^australia\-", sql_region)
-    if x:
-        return "nam-eur-asia1"
-    x = re.search("^europe\-", sql_region)
-    if x:
-        return "eur3"
-    x = re.search("^northamerica\-", sql_region)
-    if x:
-        return "nam6"
-    x = re.search("^southamerica\-", sql_region)
-    if x:
-        return "nam6"
-    x = re.search("^us\-", sql_region)
-    if x:
-        return "nam6"
-
-    print(f"Couldn't figure out how to extrapolate from the region: '{sql_region}'")
-    return None
-
-def extrapolate_firestore_region(sql_region):
-    x = re.search("^asia\-", sql_region)
-    if x:
-        return "asia-northeast1"
-
-    x = re.search("^australia\-", sql_region)
-    if x:
-        return "australia-southeast1"
-
-    x = re.search("^europe\-", sql_region)
-    if x:
-        return "europe-west"
-
-    x = re.search("^northamerica\-", sql_region)
-    if x:
-        return "us-central"
-
-    x = re.search("^southamerica\-", sql_region)
-    if x:
-        return "us-central"
-
-    x = re.search("^us\-central", sql_region)
-    if x:
-        return "us-central"
-
-    x = re.search("^us\-west", sql_region)
-    if x:
-        return "us-west2"
-
-    x = re.search("^us\-east", sql_region)
-    if x:
-        return "us-east1"
-
-    print(f"Couldn't figure out how to extrapolate from the region: '{sql_region}'")
-    return None
 
 def fetch_project_id(envvar):
     project_id_process = subprocess.run(["gcloud config get-value project"], shell=True, capture_output=True, text=True)
@@ -382,8 +360,8 @@ def run_firestore_create(region):
 
     return None
 
-def initialize_firestore(project_id, region):
-    create_err = run_firestore_create(region)
+def initialize_firestore(project_id, app_region, firestore_region):
+    create_err = run_firestore_create(firestore_region)
     if create_err != None:
         x = re.search("You must first create an Google App Engine app", create_err)
         if not x:
@@ -391,15 +369,15 @@ def initialize_firestore(project_id, region):
             print(proc.stderr)
             return False
 
-        proc = subprocess.run([f"gcloud app create --region={region}"], shell=True, capture_output=True, text=True)
+        proc = subprocess.run([f"gcloud app create --region={app_region}"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
             print("   Wasn't able to create our default app engine application to enable Firestore database creation.")
             print(proc.stderr)
             return False
         
         # Try one more time now that we have our app engine created
-        create_err = run_firestore_create(region)
-        if create_err != None:
+        second_chance_err = run_firestore_create(firestore_region)
+        if second_chance_err != None:
             print("   There was a problem creating the Firestore database.")
             print(proc.stderr)
             return False
@@ -734,8 +712,8 @@ def are_firestore_indexes_ready(sleep_time):
         collection_match = re.search("\/collectionGroups\/resources\/indexes", entry)
 
         if not collection_match:
-            print(f"---\n{entry}\---\n")
-            print("Didn't match collection 'resources', moving on\n")
+            #print(f"---\n{entry}\---\n")
+            #print("Didn't match collection 'resources', moving on\n")
             continue
 
         state_match = re.search("state\:[\s]+([A-Z]+)\n", entry)
@@ -759,8 +737,8 @@ def are_firestore_indexes_ready(sleep_time):
         collection_match = re.search("\/collectionGroups\/resources\/fields", entry)
 
         if not collection_match:
-            print(f"---\n{entry}\---")
-            print("Didn't match collection 'resources', moving on\n\n")
+            #print(f"---\n{entry}\---")
+            #print("Didn't match collection 'resources', moving on\n\n")
             continue
 
         # There's several lines in the fields indexes that could all be CREATING
@@ -821,7 +799,7 @@ def deploy_db_resource_service(service_account, region, project_id):
         print("   Couldn't fetch our service url")
         return None
     out = proc.stdout
-    x = re.search("(http[a-z\.\-\/\:]*)", out)
+    x = re.search("(http[0-9a-z\.\-\/\:]*)", out)
     if x != None:
         db_lease_url = x.group(1)
     if db_lease_url != None:
