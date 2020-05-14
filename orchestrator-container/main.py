@@ -43,8 +43,8 @@ gDuration = 3 # represents the duration we're reserving an instance
 # URLs for the other two services TODO: make this dynamic
 #db_lease_url = "http://localhost:5001"
 #load_gen_url = "http://localhost:5002"
-db_lease_url = "https://breaking-db-lease-5gh6m2f5oq-uc.a.run.app/lease"
-load_gen_url = "https://breaking-load-service-5gh6m2f5oq-uc.a.run.app"
+db_lease_url = "https://breaking-db-lease-abqdciqyya-uw.a.run.app/lease"
+load_gen_url = "https://breaking-load-service-abqdciqyya-uw.a.run.app"
 
 # Passing "None" here means use the application default credentials
 firebase_admin.initialize_app(None, {
@@ -208,9 +208,9 @@ async def run():
         return "Unable to fetch an available database resource.", 503
 
         # Starting up load gen!
-    #run_result = await do_run(resource_id, jobs_id, CLOUD_SQL,
-    #                          read_pattern, 3,
-    #                          write_pattern, 3)
+    run_result = await do_run(resource_id, jobs_id, CLOUD_SQL,
+                              read_pattern, 3,
+                              write_pattern, 3)
 
     return_json = '{ "job_ids": ['
     for x in range(jobs_len):
