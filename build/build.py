@@ -256,7 +256,7 @@ if flag_create_db_instances and not run_cached:
     time_tracker = round(current_time() - time_tracker, 2)
     print(f"  Finished creating Cloud SQL instances in {time_tracker} seconds\n")
 
-    print("Starting to create Cloud SQL w/ replica instances (another big wait incoming\n")
+    print("Starting to create Cloud SQL w/ replica instances (another big wait incoming)\n")
     time_tracker = current_time()
 
     if not build_helpers.create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc_name):
