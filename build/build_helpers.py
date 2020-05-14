@@ -408,7 +408,8 @@ def initialize_firestore(project_id, app_region, firestore_region, run_cached):
             return False
         out = debug_proc.stdout
         x = re.search("is already a Firebase project", out)
-        if not x:
+        y = re.search("Requested entity already exists", out)
+        if not x and not y:
             print("   Wasn't able to add Firestore initialization to the environment")
             print(out)
             return False
@@ -782,9 +783,9 @@ def deploy_db_resource_service(service_account, region, project_id):
             print(f"Firestore indexes aren't ready yet, waiting {sleep_time} seconds to try again.")
             time.sleep(sleep_time)
             sleep_time = sleep_time * 2
-            # Set currently to 10s, 20s, 40s, 1:20, 2:40, 5:20
+            # Set currently to 10s, 20s, 40s, 1:20, 2:40, 5:20, 12:00
             # If it takes longer than that, error out.
-            if sleep_time > 360:
+            if sleep_time > 720:
                 print("   Firstore indexes never appear to have gotten set. You can check manually for when they're done by running:\n\ngcloud alpha firestore indexes composite list --format=flattened\n\nAnd you should get back something that doesn't look like two empty values. If you don't see that, you should be able to check the progress in the console or by re-running that command. Once it's all set, re-run the script and it should get past this point.\n")
                 return None
 
