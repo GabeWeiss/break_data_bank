@@ -263,9 +263,9 @@ def create_sql_instances(sql_region, vm_cpus, vm_ram, instance_names, vpc):
         # a micro instance (.6 GiB RAM and 1 vCPU) as our first instace
         db_create_process = None
         if cpu == "1":
-            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --tier=db-f1-micro --network={vpc}"], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --assign-ip --root-password=postgres --tier=db-f1-micro --network={vpc}"], shell=True, capture_output=True, text=True)
         else:
-            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --cpu={cpu} --memory={ram} --network={vpc}"], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --assign-ip --root-password=postgres --cpu={cpu} --memory={ram} --network={vpc}"], shell=True, capture_output=True, text=True)
 
         if db_create_process.returncode != 0:
             err = db_create_process.stderr
@@ -298,9 +298,9 @@ def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vp
         # a micro instance (.6 GiB RAM and 1 vCPU) as our first instace
         db_create_process = None
         if cpu == "1":
-            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --tier=db-f1-micro --network={vpc}"], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --assign-ip --root-password=postgres --tier=db-f1-micro --network={vpc}"], shell=True, capture_output=True, text=True)
         else:
-            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --cpu={cpu} --memory={ram} --network={vpc}"], shell=True, capture_output=True, text=True)
+            db_create_process = subprocess.run([f"gcloud beta sql instances create {name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --assign-ip --root-password=postgres --cpu={cpu} --memory={ram} --network={vpc}"], shell=True, capture_output=True, text=True)
 
         if db_create_process.returncode != 0:
             err = db_create_process.stderr
@@ -320,7 +320,7 @@ def create_sql_replica_instances(sql_region, vm_cpus, vm_ram, instance_names, vp
             # is fine. We SHOULD be able to specify different specs for the replica
             # than the master, but currently we can't
         replica_name = f"{name}-replica"
-        replica_process = subprocess.run([f"gcloud beta sql instances create {replica_name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --no-assign-ip --root-password=postgres --network={vpc} --master-instance-name={name}"], shell=True, capture_output=True, text=True)
+        replica_process = subprocess.run([f"gcloud beta sql instances create {replica_name} --database-version=POSTGRES_11 --region={sql_region} --no-backup --assign-ip --root-password=postgres --network={vpc} --master-instance-name={name}"], shell=True, capture_output=True, text=True)
         
         if replica_process.returncode != 0:
             err = replica_process.stderr
