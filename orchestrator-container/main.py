@@ -145,7 +145,7 @@ async def fail():
         return "Unable to create a load job.", 503
 
     connection_string, replica_ip = await fetch_resource_id(CLOUD_SQL, 1, gDuration)
-    if connection_string == -1:
+    if connection_string == None:
         return "Unable to fetch an available database resource.", 503
     
         # Starting up load gen!

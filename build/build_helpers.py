@@ -130,7 +130,7 @@ def create_service_account(project_id):
         # We need firebase and datastore at higher levels because
         # Firestore doesn't have gcloud support, so we need to do
         # everything via APIs rather than gcloud for it
-    sa_roles = [ "cloudsql.client", "firebase.admin", "datastore.owner", "spanner.databaseUser", "dataflow.admin", "run.invoker" ]
+    sa_roles = [ "cloudsql.client", "firebase.admin", "datastore.owner", "spanner.databaseUser", "dataflow.admin", "run.invoker", "container.admin" ]
     for role in sa_roles:
         proc = subprocess.run([f"gcloud projects add-iam-policy-binding {project_id} --member serviceAccount:{full_name} --role roles/{role}"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
@@ -847,6 +847,9 @@ def get_orchestrator_url():
     url = proc.stdout.split()[3]
     return url
 
+
+# TODO: This k8s_name also needs to be updated in the container for the
+# load-gen-webserver/base.py if changed
 def deploy_k8s(region, project, vpc):
     k8s_name = "breaking-cluster"
 

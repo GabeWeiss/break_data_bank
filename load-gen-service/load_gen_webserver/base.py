@@ -28,7 +28,7 @@ async def _init_client():
     try:
         if app.config["ENV"] == "production":
             try:
-                os.popen("gcloud container clusters get-credentials breaking-test --zone us-central1-c").read()
+                os.popen("gcloud container clusters get-credentials breaking-cluster --region us-west2").read()
             except:
                 print("Couldn't authenticate with cluster")
     except:

@@ -28,6 +28,9 @@ RUN mkdir -p /usr/local/gcloud \
 # Adding the package path to local
 ENV PATH $PATH:/usr/local/gcloud/google-cloud-sdk/bin
 
+# Install kubectl so we can access the k8s cluster
+RUN gcloud components install kubectl
+
 ENV APP_HOME /app
 WORKDIR $APP_HOME
 
