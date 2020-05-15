@@ -1,5 +1,7 @@
 FROM python:3.8-slim
 
+# So I can write to the log with Python easier
+ENV PYTHONUNBUFFERED True
 
 ENV APP_HOME /app
 WORKDIR $APP_HOME

@@ -114,6 +114,7 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
         "user": DB_USER,
         "password": DB_PASSWORD,
     }
+
     if os.getenv("PROD"):
         args["host"] = f"/cloudsql/{resource_id}/.s.PGSQL.5432"
         del args["port"]
@@ -178,7 +179,6 @@ async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
 async def clean_instances(db: firestore.Client, logger: logging.Logger):
     resources = await get_expired_resouces(db)
     tasks = [ await create_cleanup_task(r, db, logger) for r in resources ]
-
     results = await asyncio.gather(*tasks, return_exceptions=True)
     retry_resources = []
     for resource, result in zip(resources, results):
