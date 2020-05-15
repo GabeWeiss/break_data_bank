@@ -74,7 +74,7 @@ async def fetch_resource_id(db_type, db_size, duration):
         if db_type == CLOUD_SQL_REPLICA:
             replica_ip = json.loads(r.text)['replica_ip']
     except:
-        print("")
+        print("Failed to get back variables from db-lease service.")
 
     return connection_string, replica_ip
 

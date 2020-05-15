@@ -132,7 +132,7 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
         await conn.close()
 
 
-def create_cleanup_task(resource, db, logger):
+async def create_cleanup_task(resource, db, logger):
     db_type = resource.get("database_type")
     db_size = resource.reference.parent.parent.id
     clean_func = {
@@ -144,7 +144,7 @@ def create_cleanup_task(resource, db, logger):
         await clean_func(resource.id, logger)
         await set_status_to_ready(db, db_type, db_size, resource.id)
 
-    return reset_resource()
+    return await reset_resource()
 
 
 async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
@@ -177,7 +177,7 @@ async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
 
 async def clean_instances(db: firestore.Client, logger: logging.Logger):
     resources = await get_expired_resouces(db)
-    tasks = [ create_cleanup_task(resource, db, logger)() for r in resources ]
+    tasks = [ await create_cleanup_task(r, db, logger) for r in resources ]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
     retry_resources = []
