@@ -16,6 +16,12 @@ CLOUD_SQL = 1
 CLOUD_SQL_READ_REPLICA = 2
 CLOUD_SPANNER = 3
 
+# These 3 are used by both the configuration yaml file, as well as
+# the envvars for the db-lease service
+DATABASE_NAME = "test"
+DATABASE_USER = "postgres"
+DATABASE_PASSWORD = "postgres"
+
 def add_arguments(parser_obj):
     parser_obj.add_argument("-v", "--version", required=True,help="This is the version specified for the load-gen-script container. Should be in the format 'vx.x.x', e.g. v0.0.2")
     parser_obj.add_argument("-r", "--region", help="Specify a region to create your Cloud Run instances")
@@ -460,7 +466,7 @@ def add_db(url, database_type, database_size, resource_id, connection_string, re
     #   "resource_id"
     #   "connection_string"
     #   "replica_ip" <-- when DB is type CLOUD_SQL_READ_REPLICA
-def set_sql_db_resources(names, url):
+def set_sql_db_resources(names, url, project_id, region):
     INST_POS_RESOURCE_ID = 0
     INST_POS_IP = 5
 
@@ -492,7 +498,7 @@ def set_sql_db_resources(names, url):
 
         instance_data = out.split()
         try:
-            resource_id = instance_data[INST_POS_RESOURCE_ID]
+            resource_id = f"{project_id}:{region}:{instance_data[INST_POS_RESOURCE_ID]}"
             connection_string = instance_data[INST_POS_IP]
         except:
             print("   Looks like the format of the gcloud sql instances list output changed")
@@ -521,7 +527,7 @@ def set_sql_db_resources(names, url):
 
         database_type = CLOUD_SQL_READ_REPLICA
         try:
-            resource_id = master_data[INST_POS_RESOURCE_ID]
+            resource_id = f"{project_id}:{region}:{master_data[INST_POS_RESOURCE_ID]}"
             connection_string = master_data[INST_POS_IP]
             replica_ip = replica_data[INST_POS_IP]
         except:
@@ -639,9 +645,9 @@ def adjust_config_yaml(project, pubsub, version, k8s_sa):
         print("Couldn't read the load gen service config yaml example file\n")
         return False
 
-    filedata = filedata.replace("<DBName>", "test")
-    filedata = filedata.replace("<DBUser>", "postgres")
-    filedata = filedata.replace("<DBPassword>", "postgres")
+    filedata = filedata.replace("<DBName>", DATABASE_NAME)
+    filedata = filedata.replace("<DBUser>", DATABASE_USER)
+    filedata = filedata.replace("<DBPassword>", DATABASE_PASSWORD)
     filedata = filedata.replace("<PubSubTopic>", pubsub)
     filedata = filedata.replace("<ProjectID>", project)
     filedata = filedata.replace("<Version>", version)
@@ -789,16 +795,7 @@ def deploy_db_resource_service(service_account, region, project_id):
                 print("   Firstore indexes never appear to have gotten set. You can check manually for when they're done by running:\n\ngcloud alpha firestore indexes composite list --format=flattened\n\nAnd you should get back something that doesn't look like two empty values. If you don't see that, you should be able to check the progress in the console or by re-running that command. Once it's all set, re-run the script and it should get past this point.\n")
                 return None
 
-### Looks like we're having issues project related to being able to do this, and it's
-### Only a warning, not an error... Not sure what the real-world impact of this is.
-
-#    proc = subprocess.run([f"gcloud beta run services add-iam-policy-binding --region={region} --member=allUsers --role=roles/run.invoker {service_name}"])
-#    if proc.returncode != 0:
-#        print("   Had a problem creating the db-lease service account binding.")
-#        print(proc.stderr)
-#        return None
-
-    proc = subprocess.run([f"gcloud run deploy {service_name} --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --platform managed --image=gcr.io/{project_id}/breaking-db-lease"], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud run deploy {service_name} --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --update-env-vars=DB_NAME={DATABASE_NAME},DB_USER={DB_USER},DB_PASSWORD={DATABASE_PASSWORD},PROD=1 --image=gcr.io/{project_id}/breaking-db-lease"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't start the db-lease Cloud Run service")
         print(proc.stderr)

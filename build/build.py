@@ -287,7 +287,7 @@ if flag_add_dbs_to_firestore and not run_cached:
     time_tracker = current_time()
 
     db_add_endpoint = f"{db_resource_url}/add"
-    if not build_helpers.set_sql_db_resources(instance_names, db_add_endpoint):
+    if not build_helpers.set_sql_db_resources(instance_names, db_add_endpoint, project_id, sql_region):
         sys.exit(1)
 
     if not build_helpers.set_spanner_db_resources(instance_names, db_add_endpoint):
