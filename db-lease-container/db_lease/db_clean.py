@@ -118,7 +118,12 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
     if os.getenv("PROD"):
         args["host"] = f"/cloudsql/{resource_id}/.s.PGSQL.5432"
         del args["port"]
-    conn = await asyncpg.connect(**args,)
+    try:
+        conn = await asyncpg.connect(**args,)
+    except:
+        print("Yeah no, couldn't connect to the db")
+        return
+
     try:
         await conn.execute("DROP SCHEMA public CASCADE")
         logger.info(f"Dropped schema for db {DB_NAME} in {resource_id}")
