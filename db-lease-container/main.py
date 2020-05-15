@@ -222,7 +222,7 @@ async def force_clean():
     """
     Endpoint to force the database cleaning task to run
     """
-    db_clean.clean_instances(db, app.logger)
+    await db_clean.clean_instances(db, app.logger)
     return f"Databases cleaned", 200
 
 
