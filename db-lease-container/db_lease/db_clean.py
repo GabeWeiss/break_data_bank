@@ -9,7 +9,11 @@ from google.cloud import spanner
 
 from .helpers import run_function_as_async
 
-# TODO: what does a clean database schema look like?
+# TODO: These are env vars for now, will come up with a better solution later
+DB_NAME = os.getenv("DB_NAME")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+
 DDL_STATEMENTS = [
     "CREATE TABLE shapes ("
     "uuid VARCHAR(255) PRIMARY KEY,"
@@ -18,12 +22,6 @@ DDL_STATEMENTS = [
     "shape VARCHAR(255)"
     ");"
 ]
-
-
-# TODO: These are env vars for now, will come up with a better solution later
-DB_NAME = os.getenv("DB_NAME")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 # Change this to adjust how often the DB cleanup happens
 DB_CLEANUP_INTERVAL = 1
@@ -125,11 +123,12 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
         return
 
     try:
-        await conn.execute("DROP SCHEMA public CASCADE")
-        logger.info(f"Dropped schema for db {DB_NAME} in {resource_id}")
-        # Recreate the schema
-        await conn.execute("CREATE SCHEMA public")
-        logger.info(f"Recreated schema for db {DB_NAME} in {resource_id}")
+        await conn.execute(f"DROP DATABASE IF EXISTS {DB_NAME}")
+        logger.info(f"Dropped db {DB_NAME} in {resource_id}")
+        # Recreate the db
+        await conn.execute(f"CREATE DATABASE {DB_NAME}")
+        await conn.execute(f"\c {DB_NAME}")
+        logger.info(f"Recreated db {DB_NAME} in {resource_id}")
         # Recreate the tables
         for statement in DDL_STATEMENTS:
             await conn.execute(statement)
