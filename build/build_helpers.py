@@ -136,7 +136,7 @@ def create_service_account(project_id):
         # We need firebase and datastore at higher levels because
         # Firestore doesn't have gcloud support, so we need to do
         # everything via APIs rather than gcloud for it
-    sa_roles = [ "cloudsql.client", "firebase.admin", "datastore.owner", "spanner.databaseUser", "dataflow.admin", "run.invoker", "container.admin" ]
+    sa_roles = [ "cloudsql.client", "firebase.admin", "datastore.owner", "spanner.databaseUser", "dataflow.admin", "run.invoker", "container.admin", "pubsub.publisher" ]
     for role in sa_roles:
         proc = subprocess.run([f"gcloud projects add-iam-policy-binding {project_id} --member serviceAccount:{full_name} --role roles/{role}"], shell=True, capture_output=True, text=True)
         if proc.returncode != 0:
