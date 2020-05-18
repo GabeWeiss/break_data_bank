@@ -19,6 +19,7 @@ import time
 from typing import Awaitable, Tuple
 import asyncpg
 import random
+import uuid
 from .utils import Timer, OperationResults
 
 
@@ -37,19 +38,39 @@ async def generate_transaction_args(
         database=database,
         user=user,
         password=password,
-        min_size=20,
+        min_size=1,
         max_size=20,
     )
     return (pool,)
 
 
-READ_STATEMENTS = ["SELECT 1"]
+READ_STATEMENTS = [
+    "SELECT * from shapes",
+    "SELECT fillColor from shapes",
+    "SELECT lineColor from shapes WHERE fillColor='red'",
+    ]
+
+def insert_new_row() -> str:
+    return "INSERT INTO shapes (uuid, fillColor, lineColor, shape) VALUES ('{}', 'red', 'black', 'square')".format(
+        uuid.uuid4()
+    )
+
+def update_row() -> str:
+    return "UPDATE shapes SET lineColor='black' WHERE fillColor='red'"
+
+WRITE_STATEMENTS = [
+    insert_new_row,
+    update_row,
+]
 
 
 def read_operation(pool: asyncpg.pool) -> Awaitable[OperationResults]:
     stmt = random.choice(READ_STATEMENTS)
     return perform_operation(pool, "read", stmt)
 
+def write_operation(pool: asyncpg.pool) -> Awaitable[OperationResults]:
+    stmt = random.choice(WRITE_STATEMENTS)
+    return perform_operation(pool, "write", stmt)
 
 async def perform_operation(
     pool: asyncpg.pool, operation: str, statement: str, timeout: float = 5

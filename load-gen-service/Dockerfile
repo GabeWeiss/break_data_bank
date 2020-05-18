@@ -14,6 +14,9 @@
 
 FROM python:3.8-slim
 
+# So I can write to the log with Python easier
+ENV PYTHONUNBUFFERED True
+
 # install curl
 RUN apt-get update; apt-get install curl --assume-yes
 

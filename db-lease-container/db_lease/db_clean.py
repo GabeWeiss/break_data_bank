@@ -104,6 +104,7 @@ def clean_spanner_instance(resource_id: str, logger: logging.Logger):
         logger.info(f"Created db {DB_NAME} in instance {resource_id}")
 
 
+@run_function_as_async
 async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
     args = {
         "host": "127.0.0.1",
@@ -118,8 +119,9 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
         del args["port"]
     try:
         conn = await asyncpg.connect(**args,)
-    except:
+    except Exception as ex:
         print("Yeah no, couldn't connect to the db")
+        print("Error connecting: %s", ex)
         return
 
     try:

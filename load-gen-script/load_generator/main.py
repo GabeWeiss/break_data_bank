@@ -108,6 +108,7 @@ async def generate_load(args: configargparse.Namespace):
             args.connection_string, args.primary_port, args.database, args.user, args.password
         )
         read = functools.partial(cloud_sql.read_operation, *op_args)
+        write = functools.partial(cloud_sql.write_operation, *op_args)
 
     elif args.target_type == CLOUD_SPANNER:
         op_args = await spanner.generate_transaction_args(args.connection_string, args.database)
