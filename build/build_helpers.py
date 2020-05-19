@@ -947,8 +947,8 @@ def create_storage_bucket(project, region, envvar):
     os.environ[envvar] = bucket_name
     return bucket_name
 
-def deploy_dataflow():
-    build_proc = subprocess.run(['mvn -e compile exec:java -Dexec.mainClass=com.google.devrel.breaking.BreakingDataTransactions -Dexec.args="--runner=DataflowRunner" 2>&1'], shell=True, capture_output=True, text=True, cwd='../dataflow-transactions')
+def deploy_dataflow(service_account):
+    build_proc = subprocess.run([f'mvn -e compile exec:java -Dexec.mainClass=com.google.devrel.breaking.BreakingDataTransactions -Dexec.args="--runner=DataflowRunner" --serviceAccount={service_account} 2>&1'], shell=True, capture_output=True, text=True, cwd='../dataflow-transactions')
     if build_proc.returncode != 0:
         print("There was a problem deploying the Dataflow pipeline")
         print(build_proc.stdout)

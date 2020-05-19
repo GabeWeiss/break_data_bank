@@ -435,7 +435,7 @@ if flag_deploy_dataflow and not run_cached:
     print("Deploying Dataflow pipeline to Cloud (This is another longer wait)")
     time_tracker = current_time()
 
-    if not build_helpers.deploy_dataflow():
+    if not build_helpers.deploy_dataflow(service_account):
         sys.exit(1)
 
     time_tracker = round(current_time() - time_tracker, 2)

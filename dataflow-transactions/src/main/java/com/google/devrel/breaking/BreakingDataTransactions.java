@@ -65,23 +65,11 @@ public class BreakingDataTransactions {
       // validate our env vars
     if (GlobalVars.projectId   == null ||
         GlobalVars.pubsubTopic == null ||
-        GlobalVars.gcsBucket   == null) {
-          System.out.println("You have to set environment variables for project (BREAKING_PROJECT), pubsub topic (BREAKING_PUBSUB) and Cloud Storage bucket for staging (BREAKING_DATAFLOW_BUCKET) in order to deploy this pipeline.");
+        GlobalVars.gcsBucket   == null ||
+        GlobalVars.region      == null) {
+          System.out.println("You have to set environment variables for project (BREAKING_PROJECT), pubsub topic (BREAKING_PUBSUB), region (BREAKING_REGION) and Cloud Storage bucket for staging (BREAKING_DATAFLOW_BUCKET) in order to deploy this pipeline.");
           System.exit(1);
         }
-
-      // Initialize our Firestore instance
-    try {
-    GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
-    FirebaseOptions firebaseOptions =
-        new FirebaseOptions.Builder()
-            .setCredentials(credentials)
-            .setProjectId(GlobalVars.projectId)
-            .build();
-    FirebaseApp firebaseApp = FirebaseApp.initializeApp(firebaseOptions);
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
 
       // Start dataflow pipeline
     DataflowPipelineOptions options =
@@ -443,12 +431,34 @@ public class BreakingDataTransactions {
 
   public static class FireStoreOutput extends DoFn<Result, String> {
 
-    Firestore db;
+    static Firestore db;
+
+    public static synchronized Firestore getDB() {
+      if (db == null) {
+        System.out.println("I'm being called");
+          // Initialize our Firestore instance
+        try {
+          GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
+          System.out.println("*************************");
+          System.out.println(credentials);
+          FirebaseOptions firebaseOptions =
+              new FirebaseOptions.Builder()
+                  .setCredentials(credentials)
+                  .setProjectId(GlobalVars.projectId)
+                  .build();
+          FirebaseApp firebaseApp = FirebaseApp.initializeApp(firebaseOptions);
+          
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+        db = FirestoreClient.getFirestore();
+      }
+      return db;
+    }
 
     @ProcessElement
     public void processElement(@Element Result result) {
-      db = FirestoreClient.getFirestore();
-      DocumentReference docRef = db.collection("events")
+      DocumentReference docRef = getDB().collection("events")
                                    .document("next2020")
                                    .collection("transactions")
                                    .document(result.job_id)
