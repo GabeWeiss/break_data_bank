@@ -25,7 +25,7 @@ DATABASE_PASSWORD = "postgres"
 def add_arguments(parser_obj):
     parser_obj.add_argument("-v", "--version", required=True,help="This is the version specified for the load-gen-script container. Should be in the format 'vx.x.x', e.g. v0.0.2")
     parser_obj.add_argument("-r", "--region", help="Specify a region to create your Cloud Run instances")
-    parser_obj.add_argument("-p", "--pubsub", help="Specifies a pub/sub topic, defaults to 'breaking-test'", default="breaking-demo-topic")
+    parser_obj.add_argument("-p", "--pubsub", help="Specifies a pub/sub topic, defaults to 'breaking-demo-topic'", default="breaking-demo-topic")
     parser_obj.add_argument("-c", "--cached", help="Sets up the demo to run in the cached mode instead of really running against the DBs", action='store_true')
 
 def verify_prerequisites():
@@ -197,47 +197,29 @@ def create_vpc(project_id):
 
     return vpc_name
 
-def fetch_sql_region(arg_region, envvar):
-        # If they specified a region, use that
-    if arg_region != None:
-        os.environ[envvar] = arg_region
-        return arg_region
-
-        # Try to grab the default Cloud Run region
-    default_region_process = subprocess.run(["gcloud config get-value run/region"], shell=True, capture_output=True, text=True)
-    if default_region_process.stdout != "":
-        region = default_region_process.stdout.rstrip()
-        os.environ[envvar] = region
-        return region
-
-        # Next we'll go for a default Compute region
-    default_region_process = subprocess.run(["gcloud config get-value compute/region"], shell=True, capture_output=True, text=True)
-    if default_region_process.stdout != "":
-        region = default_region_process.stdout.rstrip()
-        os.environ[envvar] = region
-        return region
-
-        # Finally we'll go for an environment variable they can set if they don't want to use a default region
-    default_region = os.environ.get(envvar)
-    if default_region == None:
-        print(f"\nWasn't able to determine a region to start our Cloud Run services.\nPlease either set a region using 'gcloud config set run/region <region>'\nor set an environment variable '{envvar}' with the name of the region.\nEnsure that the region is a valid one. Regions can be found by running\n'gcloud compute regions list'.\n")
-    return default_region
-
-def fetch_project_id(envvar):
+def fetch_project_id():
     project_id_process = subprocess.run(["gcloud config get-value project"], shell=True, capture_output=True, text=True)
     if project_id_process.stdout != "":
         proj = project_id_process.stdout.rstrip()
-        os.environ[envvar] = proj
         return proj
 
     print("Something went wrong with authorization with gcloud. Please try again and be sure to authorize when it pops up in your browser.")
     return None
 
-# There's a default value set in argparse, so this SHOULDN'T ever
-# have a None value passed in, but just in case, put in the test
-def fetch_pubsub_topic(pubsub, envvar):
+def fetch_pubsub_topic(pubsub, project_id):
+    # We shouldn't ever have None here since there's a default
+    # value in the args parsing, so it'll be an error condition
+    if pubsub == None:
+        print("   Something really bad happened fetching the Pub/Sub topic")
+        return None
+
+    x = re.match('^projects/', pubsub)
+    # If we haven't started with projects/ then we know we need to
+    # put it into the proper full format
+    if not x:
+        pubsub = f'projects/{project_id}/topics/{pubsub}'
     if pubsub != None:
-        os.environ[envvar] = pubsub
+        print("   Something really bad happened fetching the Pub/Sub topic")
         return pubsub
     return None
 
@@ -934,7 +916,7 @@ def bind_k8s_service_accounts(project, k8s_sa, gcp_sa):
 
     return True
 
-def create_storage_bucket(project, region, envvar):
+def create_storage_bucket(project, region):
     time_hash = int(round(time.time() * 1000))
     bucket_name = f"gs://breaking-tmp-{time_hash}/"
     proc = subprocess.run([f"gsutil mb -p {project} -c STANDARD -l {region} -b on {bucket_name}"], shell=True, capture_output=True, text=True)
@@ -943,12 +925,10 @@ def create_storage_bucket(project, region, envvar):
         print (proc.stderr)
         return None
 
-    # Need the os env var for the Dataflow job to read
-    os.environ[envvar] = bucket_name
     return bucket_name
 
-def deploy_dataflow(service_account):
-    build_proc = subprocess.run([f'mvn -e compile exec:java -Dexec.mainClass=com.google.devrel.breaking.BreakingDataTransactions -Dexec.args="--runner=DataflowRunner" --serviceAccount={service_account} 2>&1'], shell=True, capture_output=True, text=True, cwd='../dataflow-transactions')
+def deploy_dataflow(service_account, project_id, region, gcp_bucket, pubsub_topic):
+    build_proc = subprocess.run([f'mvn -e compile exec:java -Dexec.mainClass=com.google.devrel.breaking.BreakingDataTransactions -Dexec.args="--runner=DataflowRunner --serviceAccount={service_account} --project={project_id} --region={region} --gcpTempLocation={gcp_bucket} --pubsubTopic={pubsub_topic}" 2>&1'], shell=True, capture_output=True, text=True, cwd='../dataflow-transactions')
     if build_proc.returncode != 0:
         print("There was a problem deploying the Dataflow pipeline")
         print(build_proc.stdout)

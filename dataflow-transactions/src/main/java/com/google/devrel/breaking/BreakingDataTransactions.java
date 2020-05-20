@@ -30,15 +30,16 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.awt.*;
-import java.io.IOException;
+import java.io.*;
 import java.lang.reflect.Type;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import org.apache.avro.reflect.Nullable;
 import org.apache.beam.runners.dataflow.DataflowRunner;
-import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.AvroCoder;
 import org.apache.beam.sdk.coders.DefaultCoder;
@@ -53,6 +54,8 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.*;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BreakingDataTransactions {
 
@@ -61,26 +64,18 @@ public class BreakingDataTransactions {
     // when set to true the job gets deployed to Cloud Dataflow
   static Boolean DEPLOY = true;
 
+  private static final Logger LOG = LoggerFactory.getLogger(FireStoreOutput.class);
+
   public static void main(String[] args) {
-      // validate our env vars
-    if (GlobalVars.projectId   == null ||
-        GlobalVars.pubsubTopic == null ||
-        GlobalVars.gcsBucket   == null ||
-        GlobalVars.region      == null) {
-          System.out.println("You have to set environment variables for project (BREAKING_PROJECT), pubsub topic (BREAKING_PUBSUB), region (BREAKING_REGION) and Cloud Storage bucket for staging (BREAKING_DATAFLOW_BUCKET) in order to deploy this pipeline.");
-          System.exit(1);
-        }
 
-      // Start dataflow pipeline
-    DataflowPipelineOptions options =
-        PipelineOptionsFactory.create().as(DataflowPipelineOptions.class);
-
-    options.setProject(GlobalVars.projectId);
+    PipelineOptionsFactory.register(PubsubDataflowPipelineOptions.class);
+    PubsubDataflowPipelineOptions options =
+        PipelineOptionsFactory.fromArgs(args).create().as(PubsubDataflowPipelineOptions.class);
 
     if (DEPLOY) {
         options.setRunner(DataflowRunner.class);
-        options.setTempLocation(GlobalVars.gcsBucket);
-        options.setRegion(GlobalVars.region);
+        options.setTempLocation(options.getGcpTempLocation());
+        options.setRegion(options.getRegion());
     }
 
     Pipeline p = Pipeline.create(options);
@@ -88,7 +83,7 @@ public class BreakingDataTransactions {
     PCollection<String> jsonStrings;
 
     if (REAL) {
-      jsonStrings = p.apply(PubsubIO.readStrings().fromTopic(GlobalVars.pubsubTopic));
+      jsonStrings = p.apply(PubsubIO.readStrings().fromTopic(options.getPubsubTopic()));
     } else {
       Instant now = new Instant();
       jsonStrings =
@@ -342,16 +337,7 @@ public class BreakingDataTransactions {
           // this node will (hopefully) actually write out to Firestore
         result.apply(ParDo.of(new FireStoreOutput()));
 
-        MapElements.<String>into(TypeDescriptors.strings())
-            .<Result>via(
-                x -> {
-                  System.out.println(x);
-                  System.out.println("Processing");
-                  return "";
-                });
-
     p.run();
-
   }
 
   public static class DataAnalysis extends CombineFn<Data, ResultAggregate, Result> {
@@ -435,21 +421,41 @@ public class BreakingDataTransactions {
 
     public static synchronized Firestore getDB() {
       if (db == null) {
-        System.out.println("I'm being called");
           // Initialize our Firestore instance
         try {
+            // this will grab the service account assigned to the
+            // Dataflow pipeline from commandline options. It's passed
+            // in from the Maven deployment command as --serviceAccount=<account>
           GoogleCredentials credentials = GoogleCredentials.getApplicationDefault();
-          System.out.println("*************************");
-          System.out.println(credentials);
+          //LOG.info("Credentials: " + credentials);
+
+            // Need the project ID in order to initialize Firestore
+            // Easiest way is to fetch from the GCE instance's metadata serve
+          URL url = new URL("http://metadata.google.internal/computeMetadata/v1/project/project-id");
+          HttpURLConnection con = (HttpURLConnection) url.openConnection();
+          con.setRequestProperty("Metadata-Flavor", "Google");
+          con.setRequestMethod("GET");
+          int status = con.getResponseCode();
+          BufferedReader in = new BufferedReader(
+            new InputStreamReader(con.getInputStream()));
+          String inputLine;
+          StringBuffer content = new StringBuffer();
+          while ((inputLine = in.readLine()) != null) {
+              content.append(inputLine);
+          }
+          in.close();
+          con.disconnect();
+
+          String projectId = content.toString();
+
           FirebaseOptions firebaseOptions =
               new FirebaseOptions.Builder()
                   .setCredentials(credentials)
-                  .setProjectId(GlobalVars.projectId)
+                  .setProjectId(projectId)
                   .build();
           FirebaseApp firebaseApp = FirebaseApp.initializeApp(firebaseOptions);
-          
-        } catch (IOException e) {
-          e.printStackTrace();
+        } catch (Exception ex) {
+          LOG.error("Error in initializing Firestore:" + ex);
         }
         db = FirestoreClient.getFirestore();
       }
@@ -464,7 +470,6 @@ public class BreakingDataTransactions {
                                    .document(result.job_id)
                                    .collection("transactions")
                                    .document();
-      //System.out.println(docRef.getId());
       // Add document data  with id "alovelace" using a hashmap
       Map<String, Object> data = new HashMap<>();
       data.put("failure_percent", result.failure_percent);
@@ -516,7 +521,7 @@ public class BreakingDataTransactions {
         }
 
       } catch (Exception ex) {
-        System.out.println("Error in processing:" + ex);
+        LOG.error("Error in processing:" + ex);
       }
     }
   }

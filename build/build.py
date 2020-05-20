@@ -7,13 +7,6 @@ import time
 
 import build_helpers
 
-# environment variable keys
-dataflow_gcs_bucket_envvar = "BREAKING_DATAFLOW_BUCKET"
-region_envvar = "BREAKING_REGION"
-project_envvar = "BREAKING_PROJECT"
-pubsub_envvar = "BREAKING_PUBSUB"
-
-
 # Feature flags to enable/disable different parts of this build script
 # Broadly speaking, this is for debugging purposes, and you shouldn't
 # change any of these values. If you don't wish to do any of the pieces,
@@ -114,7 +107,7 @@ print("Fetching project metadata\n")
 time_tracker = current_time()
 # Need the project id of the current configuration for all
 # kinds of things
-project_id = build_helpers.fetch_project_id(project_envvar)
+project_id = build_helpers.fetch_project_id()
 if project_id == None:
     sys.exit(1)
 
@@ -125,12 +118,9 @@ print(f" Project id: '{project_id}'")
 # "apac" and I'll set regions accordingly.
 sql_region, app_region, firestore_region, spanner_region, run_region, gke_region, storage_region = build_helpers.assign_regions(args.region)
 
-# Set environment variable for regional Dataflow pickup
-os.environ[region_envvar] = storage_region
-
 print(f" Regions:\n  Cloud SQL: '{sql_region}'\n  AppEngine: '{app_region}'\n  Firestore: '{firestore_region}'\n  Spanner: '{spanner_region}'\n  Cloud Run: '{run_region}'\n  GKE: '{gke_region}'\n  Storage: '{storage_region}'")
 
-pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub, pubsub_envvar)
+pubsub_topic = build_helpers.fetch_pubsub_topic(args.pubsub, project_id)
 if pubsub_topic == None:
     sys.exit(1)
 
@@ -425,7 +415,7 @@ if flag_deploy_dataflow and not run_cached:
     time_tracker = current_time()
 
     # First we need a temporary bucket in Cloud Storage for the job
-    gcs_bucket = build_helpers.create_storage_bucket(project_id, storage_region, dataflow_gcs_bucket_envvar)
+    gcs_bucket = build_helpers.create_storage_bucket(project_id, storage_region)
     if gcs_bucket == None:
         sys.exit(1)
 
@@ -435,7 +425,7 @@ if flag_deploy_dataflow and not run_cached:
     print("Deploying Dataflow pipeline to Cloud (This is another longer wait)")
     time_tracker = current_time()
 
-    if not build_helpers.deploy_dataflow(service_account):
+    if not build_helpers.deploy_dataflow(service_account, project_id, storage_region, gcs_bucket, pubsub_topic):
         sys.exit(1)
 
     time_tracker = round(current_time() - time_tracker, 2)
