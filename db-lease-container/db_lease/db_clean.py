@@ -14,13 +14,22 @@ DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
-DDL_STATEMENTS = [
+PG_DDL_STATEMENTS = [
     "CREATE TABLE shapes ("
     "uuid VARCHAR(255) PRIMARY KEY,"
     "fillColor VARCHAR(255),"
     "lineColor VARCHAR(255),"
     "shape VARCHAR(255)"
     ");"
+]
+
+SPANNER_DDL_STATEMENTS = [
+    "CREATE TABLE shapes ( "
+ 	"uuid STRING(MAX) NOT NULL,"
+ 	"fillColor STRING(MAX),"
+	"lineColor STRING(MAX),"
+	"shape STRING(MAX),"
+    "PRIMARY KEY (uuid)"
 ]
 
 # Change this to adjust how often the DB cleanup happens
@@ -132,7 +141,7 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
         await conn.execute(f"\c {DB_NAME}")
         logger.info(f"Recreated db {DB_NAME} in {resource_id}")
         # Recreate the tables
-        for statement in DDL_STATEMENTS:
+        for statement in PG_DDL_STATEMENTS:
             await conn.execute(statement)
         logger.info(f"Recreated tables for db {DB_NAME} in {resource_id}")
     finally:
