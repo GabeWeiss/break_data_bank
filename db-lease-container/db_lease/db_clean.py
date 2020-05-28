@@ -32,6 +32,8 @@ SPANNER_DDL_STATEMENTS = [
     "PRIMARY KEY (uuid)"
 ]
 
+SPANNER_TIMEOUT = 5
+
 # Change this to adjust how often the DB cleanup happens
 DB_CLEANUP_INTERVAL = 1
 MAX_RETRY_SECONDS = 120
@@ -105,11 +107,11 @@ def clean_spanner_instance(resource_id: str, logger: logging.Logger):
         instance = client.instance(resource_id)
         # Drop the existing "dirty" database
         op = instance.database(DB_NAME).drop()
-        op.result()
+        op.result(SPANNER_TIMEOUT)
         logger.info(f"Dropped db {DB_NAME} from instance {DB_NAME}")
         # Create a new "clean" database with the same name
-        op = instance.database(DB_NAME, DDL_STATEMENTS).create()
-        op.result()
+        op = instance.database(DB_NAME, SPANNER_DDL_STATEMENTS).create()
+        op.result(SPANNER_TIMEOUT)
         logger.info(f"Created db {DB_NAME} in instance {resource_id}")
 
 
