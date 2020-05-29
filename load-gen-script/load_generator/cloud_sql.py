@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 POOL_SIZE = 20
 TIMEOUT = 5
 
-
 async def generate_transaction_args(
     host: str, port: int, database: str, user: str, password: str
 ) -> Tuple:
@@ -51,16 +50,14 @@ READ_STATEMENTS = [
     ]
 
 def insert_new_row() -> str:
-    return "INSERT INTO shapes (uuid, fillColor, lineColor, shape) VALUES ('{}', 'red', 'black', 'square')".format(
-        uuid.uuid4()
-    )
+    return "INSERT INTO shapes (uuid, fillColor, lineColor, shape) VALUES ('{}', 'red', 'red', 'square')"
 
 def update_row() -> str:
     return "UPDATE shapes SET lineColor='black' WHERE fillColor='red'"
 
 WRITE_STATEMENTS = [
-    insert_new_row,
-    update_row,
+    insert_new_row(),
+    update_row(),
 ]
 
 
@@ -70,7 +67,7 @@ def read_operation(pool: asyncpg.pool) -> Awaitable[OperationResults]:
 
 def write_operation(pool: asyncpg.pool) -> Awaitable[OperationResults]:
     stmt = random.choice(WRITE_STATEMENTS)
-    return perform_operation(pool, "write", stmt)
+    return perform_operation(pool, "write", stmt.format(uuid.uuid4()))
 
 async def perform_operation(
     pool: asyncpg.pool, operation: str, statement: str, timeout: float = 5
