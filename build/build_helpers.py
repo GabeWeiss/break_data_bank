@@ -928,7 +928,7 @@ def create_storage_bucket(project, region):
     return bucket_name
 
 def deploy_dataflow(service_account, project_id, region, gcp_bucket, pubsub_topic):
-    build_proc = subprocess.run([f'mvn -e compile exec:java -Dexec.mainClass=com.google.devrel.breaking.BreakingDataTransactions -Dexec.args="--runner=DataflowRunner --serviceAccount={service_account} --project={project_id} --region={region} --gcpTempLocation={gcp_bucket} --pubsubTopic={pubsub_topic}" 2>&1'], shell=True, capture_output=True, text=True, cwd='../dataflow-transactions')
+    build_proc = subprocess.run([f'mvn -e compile exec:java -Dexec.mainClass=com.google.devrel.breaking.BreakingDataTransactions -Dexec.args="--runner=DataflowRunner --serviceAccount={service_account} --project={project_id} --region={region} --gcpTempLocation={gcp_bucket}tmp --pubsubTopic={pubsub_topic}" 2>&1'], shell=True, capture_output=True, text=True, cwd='../dataflow-transactions')
     if build_proc.returncode != 0:
         print("There was a problem deploying the Dataflow pipeline")
         print(build_proc.stdout)
