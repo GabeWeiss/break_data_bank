@@ -4,6 +4,7 @@
 # IDEs
 .idea/
 .vscode/
+*.code-workspace
 
 # Python
 __pycache__/
