@@ -24,7 +24,7 @@ DDL_STATEMENTS = [
 ]
 
 # Change this to adjust how often the DB cleanup happens
-DB_CLEANUP_INTERVAL = 1
+DB_CLEANUP_INTERVAL = 3
 MAX_RETRY_SECONDS = 120
 
 
@@ -86,8 +86,7 @@ def set_status_to_down(
     pool_ref.document(resource_id).update({"status": "down"})
 
 
-@run_function_as_async
-def clean_spanner_instance(resource_id: str, logger: logging.Logger):
+async def clean_spanner_instance(resource_id: str, logger: logging.Logger):
     """
     Drops a database from the instance with the given resource_id and creates
     a new database with the same name and an identical schema
@@ -103,56 +102,74 @@ def clean_spanner_instance(resource_id: str, logger: logging.Logger):
         op.result()
         logger.info(f"Created db {DB_NAME} in instance {resource_id}")
 
-
-@run_function_as_async
 async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
+    # Intentionally connecting to the postgres system DB here
+    # because we can't drop the database when it's the active
+    # one. Which means we'll do this, then you'll see a close
+    # and connect again, which we need in order to create the
+    # tables in the correct db
     args = {
         "host": "127.0.0.1",
         "port": "5432",
-        "database": DB_NAME,
+        "database": "postgres",
         "user": DB_USER,
         "password": DB_PASSWORD,
     }
 
+    # If we're in our production environment, connect to
+    # the "correct" DB instead of our localhost, which is
+    # manually setup cloud sql proxy pointing at a test
+    # instances to play on
     if os.getenv("PROD"):
         args["host"] = f"/cloudsql/{resource_id}/.s.PGSQL.5432"
         del args["port"]
+
+    # Here's the connection to the postgres db
     try:
         conn = await asyncpg.connect(**args,)
     except Exception as ex:
-        print("Yeah no, couldn't connect to the db")
+        print("Yeah no, couldn't connect to the postgres db")
         print("Error connecting: %s", ex)
         return
 
+    # Dropping and re-creating a clean db
+    # Note, closing current connection at the
+    # end of it
     try:
         await conn.execute(f"DROP DATABASE IF EXISTS {DB_NAME}")
         logger.info(f"Dropped db {DB_NAME} in {resource_id}")
         # Recreate the db
         await conn.execute(f"CREATE DATABASE {DB_NAME}")
-        await conn.execute(f"\c {DB_NAME}")
         logger.info(f"Recreated db {DB_NAME} in {resource_id}")
+    except Exception as ex:
+        print("Couldn't drop and recreate the database")
+        print("Error dropping: %s", ex)
+        return False
+    finally:   
+        await conn.close()
+
+    # And here's connecting to the DB we just created
+    try:
+        args['database'] = DB_NAME
+        conn = await asyncpg.connect(**args,)
+    except Exception as ex:
+        print(f"Yeah no, couldn't connect to the {DB_NAME} db")
+        print("Error connecting: %s", ex)
+        return False
+
+    try:
         # Recreate the tables
         for statement in DDL_STATEMENTS:
             await conn.execute(statement)
         logger.info(f"Recreated tables for db {DB_NAME} in {resource_id}")
+    except Exception as ex:
+        print("Wasn't able to re-create our tables")
+        print("Error: %s", ex)
+        return False
     finally:
         await conn.close()
 
-
-async def create_cleanup_task(resource, db, logger):
-    db_type = resource.get("database_type")
-    db_size = resource.reference.parent.parent.id
-    clean_func = {
-        "spanner": clean_spanner_instance,
-        "cloud-sql": clean_cloud_sql_instance,
-    }[db_type]
-
-    async def reset_resource():
-        await clean_func(resource.id, logger)
-        await set_status_to_ready(db, db_type, db_size, resource.id)
-
-    return await reset_resource()
-
+    return True
 
 async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
     while resources:
@@ -183,16 +200,34 @@ async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
 
 
 async def clean_instances(db: firestore.Client, logger: logging.Logger):
+    success = True
     resources = await get_expired_resouces(db)
-    tasks = [ await create_cleanup_task(r, db, logger) for r in resources ]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    for resource in resources:
+        db_type = resource.get("database_type")
+        db_size = resource.reference.parent.parent.id
+        if db_type == "cloud-sql":
+            success = await clean_cloud_sql_instance(resource.id, logger)
+        elif db_type == "spanner":
+            success = await clean_spanner_instance(resource.id, logger)
+        else:
+            print("WTF YOU SEND ME?! I DON'T UNDERSTAND")
+            return
+        if success:
+            await set_status_to_ready(db, db_type, db_size, resource.id)
+
+    return
+
+
+
     retry_resources = []
+    print("Starting to clean")
     for resource, result in zip(resources, results):
         db_type = resource.get("database_type")
         db_size = resource.reference.parent.parent.id
         if isinstance(result, Exception):
             await set_status_to_down(db, db_type, db_size, resource.id)
             retry_resources.append(resource)
+    print("Finished first attempt, moving to retry instances")
     asyncio.create_task(retry(db, retry_resources, logger))
 
 
