@@ -91,8 +91,7 @@ def add(transaction, db_type, size, resource_id, connection_string, replica_ip):
     else:
         raise Exception(f"Resource {resource_id} already in pool")
 
-
-@app.before_serving
+@app.before_first_request
 async def clear_databases():
     # this event is used to start and stop a long running task to periodically clear databases
     app.cleanup_event = asyncio.Event()
@@ -103,7 +102,6 @@ async def clear_databases():
     loop.create_task(db_clean.loop_clean_instances(db, app.logger, app.cleanup_event))
 
 
-@app.after_serving
 async def stop_cleanup_task():
     app.cleanup_event.clear()
     await app.cleanup_event.wait()
