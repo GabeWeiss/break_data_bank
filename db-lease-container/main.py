@@ -115,7 +115,7 @@ async def stop_cleanup_task():
 @app.route("/isitworking", methods=["GET"])
 @app.route("/", methods=["GET"])
 def working():
-    return "It's working", 200
+    return "It's working\n", 200
 
 
 @app.route("/lease", methods=["POST"])
