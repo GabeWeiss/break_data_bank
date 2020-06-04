@@ -159,7 +159,8 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
 
     try:
         # Recreate the tables
-        for statement in DDL_STATEMENTS:
+        f = open("./db_lease/sql_create_statements", "r")
+        for statement in f:
             await conn.execute(statement)
         logger.info(f"Recreated tables for db {DB_NAME} in {resource_id}")
     except Exception as ex:
