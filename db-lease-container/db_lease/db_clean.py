@@ -14,15 +14,6 @@ DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
-DDL_STATEMENTS = [
-    "CREATE TABLE shapes ("
-    "uuid VARCHAR(255) PRIMARY KEY,"
-    "fillColor VARCHAR(255),"
-    "lineColor VARCHAR(255),"
-    "shape VARCHAR(255)"
-    ");"
-]
-
 # Change this to adjust how often the DB cleanup happens
 DB_CLEANUP_INTERVAL = 3
 MAX_RETRY_SECONDS = 120
@@ -91,16 +82,51 @@ async def clean_spanner_instance(resource_id: str, logger: logging.Logger):
     Drops a database from the instance with the given resource_id and creates
     a new database with the same name and an identical schema
     """
-    with spanner.Client() as client:
-        instance = client.instance(resource_id)
-        # Drop the existing "dirty" database
-        op = instance.database(DB_NAME).drop()
-        op.result()
-        logger.info(f"Dropped db {DB_NAME} from instance {DB_NAME}")
-        # Create a new "clean" database with the same name
-        op = instance.database(DB_NAME, DDL_STATEMENTS).create()
-        op.result()
-        logger.info(f"Created db {DB_NAME} in instance {resource_id}")
+    print("Starting the clean method")
+
+    client = spanner.Client()
+
+    instance = client.instance(resource_id)
+    existing_db = instance.database(DB_NAME)
+    # Drop the existing "dirty" database
+    try:
+        existing_db.drop()
+    except Exception as ex:
+        print("Wasn't able to drop the spanner databases")
+        print(f"Error: {ex}")
+        return False
+
+    print("Dropped the db")
+    logger.info(f"Dropped db {DB_NAME} from instance {DB_NAME}")
+
+    # Create a new "clean" database with the same name
+    try:
+        f = open("db_lease/spanner_create_statements", "r")
+        ddlStatements = f.read().strip().split("\n")
+    except Exception as ex:
+        print("Couldn't open our spanner create statements")
+        print(f"Error: {ex}")
+        return False
+
+    print("read the DDL statements")
+    op = instance.database(DB_NAME, ddlStatements).create()
+    #op.result()    
+    logger.info(f"Created db {DB_NAME} in instance {resource_id}")
+    print("Created db")
+    def insert_data(transaction):
+        try:
+            f = open("db_lease/spanner_insert_statements", "r")
+            dmlStatements = f.read().strip().split("\n")
+        except Exception as ex:
+            print("Couldn't open our spanner insertion statements")
+            print(f"Error: {ex}")
+            return False
+        row_ct = transaction.batch_update(dmlStatements)
+        print(row_ct)
+
+    new_db = instance.database(DB_NAME)
+    new_db.run_in_transaction(insert_data)
+    return True
 
 async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
     # Intentionally connecting to the postgres system DB here
