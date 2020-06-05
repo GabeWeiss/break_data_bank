@@ -403,23 +403,25 @@ def initialize_firestore(project_id, app_region, firestore_region, run_cached):
             return False
 
     if not run_cached:
-        print("\nThis next section may ask you to pick names for certain resources. Go ahead and just hit enter and leave the defaults the way they are.\n")
-        print("Press return to continue...")
-        y = input()
+#        print("\nThis next section may ask you to pick names for certain resources. Go ahead and just hit enter and leave the defaults the way they are.\n")
+#        print("Press return to continue...")
+#        y = input()
 
-        proc = subprocess.run([f"firebase init firestore -P {project_id}"], shell=True, text=True, cwd=firestore_dir)
-        if proc.returncode != 0:
-            print("   Wasn't able to initialize firestore for our project.")
-            print(proc.stderr)
-            return False
+#        proc = subprocess.run([f"firebase init firestore -P {project_id}"], shell=True, text=True, cwd=firestore_dir)
+#        if proc.returncode != 0:
+#            print("   Wasn't able to initialize firestore for our project.")
+#            print(proc.stderr)
+#            return False
 
         try:
             copyfile('firestore.indexes', f"{firestore_dir}/firestore.indexes.json")
+            copyfile('firebase_json', f"{firestore_dir}/firebase.json")
+            copyfile('firestore_rules', f"{firestore_dir}/firestore.rules")
         except:
-            print("   Wasn't able to copy our index files")
+            print("   Wasn't able to copy our firebase files")
             return False
 
-        proc = subprocess.run(["firebase deploy --only firestore:indexes"], shell=True, text=True, capture_output=True, cwd=firestore_dir)
+        proc = subprocess.run(["firebase deploy --only firestore"], shell=True, text=True, capture_output=True, cwd=firestore_dir)
         if proc.returncode != 0:
             print("   There was a problem creating our Firestore indexes.")
             print(proc.stderr)

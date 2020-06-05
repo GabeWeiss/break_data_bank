@@ -11,22 +11,22 @@ import build_helpers
 # Broadly speaking, this is for debugging purposes, and you shouldn't
 # change any of these values. If you don't wish to do any of the pieces,
 # set the variable to 0
-flag_verify_prerequisites                = 1
-flag_authenticate_gcloud                 = 1
-flag_authorize_gcloud_docker             = 1
-flag_enable_gcp_services                 = 1
+flag_verify_prerequisites                = 0
+flag_authenticate_gcloud                 = 0
+flag_authorize_gcloud_docker             = 0
+flag_enable_gcp_services                 = 0
 flag_setup_and_fetch_service_account     = 1
 flag_setup_firestore                     = 1
-flag_create_vpc                          = 1
-flag_create_pubsub                       = 1
-flag_deploy_db_lease_service             = 1
-flag_create_db_instances                 = 1
-flag_add_dbs_to_firestore                = 1
-flag_build_and_deploy_loadgen_containers = 1
-flag_build_and_deploy_orchestrator       = 1
-flag_deploy_cloud_run_services           = 1
-flag_deploy_k8s_cluster                  = 1
-flag_deploy_dataflow                     = 1
+flag_create_vpc                          = 0
+flag_create_pubsub                       = 0
+flag_deploy_db_lease_service             = 0
+flag_create_db_instances                 = 0
+flag_add_dbs_to_firestore                = 0
+flag_build_and_deploy_loadgen_containers = 0
+flag_build_and_deploy_orchestrator       = 0
+flag_deploy_cloud_run_services           = 0
+flag_deploy_k8s_cluster                  = 0
+flag_deploy_dataflow                     = 0
 
 # Argument handling before everything
 parser = argparse.ArgumentParser(description='This is a build script for the backend processes for the demo originally known as "Breaking the Data Bank". It shows off relative comparisons of load handling by Cloud SQL and Cloud Spanner.')
