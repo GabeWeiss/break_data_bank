@@ -13,13 +13,15 @@
 # limitations under the License.
 
 import asyncio
+import configargparse
 import functools
 import logging
 import math
+import random
 import time
 from typing import Awaitable, Callable, List
 import uuid
-import configargparse
+
 from . import cloud_sql, spanner, read_replica
 from .pubsub import PublishQueue
 from .utils import AsyncOperation
@@ -33,18 +35,15 @@ TRAFFIC_LOW = 1
 TRAFFIC_HIGH = 2
 TRAFFIC_SPIKEY = 3
 
-
 CLOUD_SQL = 1
 CLOUD_SQL_REPLICA = 2
 CLOUD_SPANNER = 3
 
-#TODO: set actual values
 LOAD_PATTERNS = {
-    1:[(4, 10)],  # 4s @ 10 qps
-    2:[(4, 20)],  # 4s @ 20 qps
-    3:[(1, 10), (1, 60), (1, 30), (1, 60)] # spikey load
+    TRAFFIC_LOW:[(10, 10)],  # 10s @ 10 qps
+    TRAFFIC_HIGH:[(10, 50)],  # 10s @ 50 qps
+    TRAFFIC_SPIKEY:[(2, 50), (2, 10), (2, 50), (2,10), (2, 50)] # spikey load
 }
-
 
 async def schedule_at(start_time: float, func: Callable[[], Awaitable]):
     """Helper function for calling a given function at a specific time."""
@@ -156,8 +155,9 @@ async def generate_load(args: configargparse.Namespace):
 
     await pub_queue.wait_for_close()
 
-
 def main():
+    random.seed()
+
     parser = configargparse.ArgParser(default_config_files=["config.yaml"])
     parser.add_argument("-c", "--config", is_config_file=True)
     parser.add_argument(
