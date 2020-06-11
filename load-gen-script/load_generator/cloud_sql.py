@@ -49,7 +49,8 @@ READ_STATEMENTS = [
     "SELECT * from pictures",
     "SELECT colors.color FROM pictures JOIN colors ON pictures.fillColor=colors.id",
     "SELECT shapes1.shape, shapes2.shape FROM pictures JOIN shapes AS shapes1 ON pictures.shape1 = shapes1.id JOIN shapes AS shapes2 ON pictures.shape2 = shapes2.id",
-    "SELECT color1.color AS lineColor, color2.color as fillColor, shapes1.shape AS shape1, shapes2.shape as shape2, artists.artist FROM pictures JOIN colors AS color1 ON pictures.lineColor = color1.id JOIN colors AS color2 on pictures.fillColor = color2.id JOIN shapes AS shapes1 ON pictures.shape1 = shapes1.id JOIN shapes AS shapes2 ON pictures.shape2 = shapes2.id JOIN artists ON pictures.artist = artists.id"
+    "SELECT color1.color AS lineColor, color2.color as fillColor, shapes1.shape AS shape1, shapes2.shape as shape2, artists.artist FROM pictures JOIN colors AS color1 ON pictures.lineColor = color1.id JOIN colors AS color2 on pictures.fillColor = color2.id JOIN shapes AS shapes1 ON pictures.shape1 = shapes1.id JOIN shapes AS shapes2 ON pictures.shape2 = shapes2.id JOIN artists ON pictures.artist = artists.id",
+    "SELECT COUNT(*) FROM pictures"
     ]
 
 def insert_new_row() -> str:

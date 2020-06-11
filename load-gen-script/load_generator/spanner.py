@@ -24,6 +24,7 @@ import uuid
 
 from google.cloud import spanner, spanner_admin_database_v1
 
+from . import db_limits
 from .utils import Timer, OperationResults
 
 logger = logging.getLogger(__name__)
@@ -39,26 +40,64 @@ logger = logging.getLogger(__name__)
 
 
 READ_STATEMENTS = [
-    "SELECT * from shapes",
-    "SELECT fillColor from shapes",
-    "SELECT lineColor from shapes WHERE fillColor='red'",
+    "SELECT * from pictures",
+    "SELECT colors.color FROM pictures JOIN colors ON pictures.fillColor=colors.id",
+    "SELECT shapes1.shape, shapes2.shape FROM pictures JOIN shapes AS shapes1 ON pictures.shape1 = shapes1.id JOIN shapes AS shapes2 ON pictures.shape2 = shapes2.id",
+    "SELECT color1.color AS lineColor, color2.color as fillColor, shapes1.shape AS shape1, shapes2.shape as shape2, artists.artist FROM pictures JOIN colors AS color1 ON pictures.lineColor = color1.id JOIN colors AS color2 on pictures.fillColor = color2.id JOIN shapes AS shapes1 ON pictures.shape1 = shapes1.id JOIN shapes AS shapes2 ON pictures.shape2 = shapes2.id JOIN artists ON pictures.artist = artists.id",
+    "SELECT COUNT(*) FROM pictures"
 ]
 
 
 def insert_new_row() -> str:
-    return "INSERT INTO shapes (uuid, fillColor, lineColor, shape) VALUES ('{}', 'red', 'black', 'square')".format(
-        uuid.uuid4()
-    )
+    return "INSERT INTO pictures (id, lineColor, fillColor, shape1, shape2, artist) VALUES ('{}', {}, {}, {}, {}, {})"
 
+def update_lineColor() -> str:
+    return "UPDATE pictures SET lineColor={} WHERE fillColor={}"
 
-def update_row() -> str:
-    return "UPDATE shapes SET lineColor='black' WHERE fillColor='red'"
+def update_fillColor() -> str:
+    return "UPDATE pictures SET fillColor={} WHERE lineColor={}"
 
+def update_shape1() -> str:
+    return "UPDATE pictures SET shape1={} WHERE shape2={}"
 
-WRITE_STATEMENTS = [
-    insert_new_row,
-    update_row,
+def update_shape2() -> str:
+    return "UPDATE pictures SET shape2={} WHERE shape1={}"
+
+def update_artist() -> str:
+    return "UPDATE pictures SET artist={} WHERE artist={}"
+
+UPDATE_COLOR = [
+    update_lineColor(),
+    update_fillColor()
 ]
+
+UPDATE_SHAPE = [
+    update_shape1(),
+    update_shape2(),
+]
+
+def read_operation(
+    db_client: spanner_admin_database_v1.types.Database,
+) -> Awaitable[OperationResults]:
+    stmt = random.choice(READ_STATEMENTS)
+    return perform_operation(db_client, "read", stmt)
+
+def write_operation(
+    db_client: spanner_admin_database_v1.types.Database,
+) -> Awaitable[OperationResults]:
+    rand = random.randint(1,10)
+    if rand < 8:
+        stmt = insert_new_row()
+        return perform_operation(db_client, "write", stmt.format(uuid.uuid4(), db_limits.random_color(), db_limits.random_color(), db_limits.random_shape(), db_limits.random_shape(), db_limits.random_artist()))
+    elif rand == 8:
+        stmt = random.choice(UPDATE_COLOR)
+        return perform_operation(db_client, "write", stmt.format(db_limits.random_color(), db_limits.random_color()))
+    elif rand == 9:
+        stmt = random.choice(UPDATE_SHAPE)
+        return perform_operation(db_client, "write", stmt.format(db_limits.random_shape(), db_limits.random_shape()))
+    elif rand == 10:
+        stmt = update_artist()
+        return perform_operation(db_client, "write", stmt.format(db_limits.random_artist(), db_limits.random_artist()))
 
 
 def run_function_as_async(func):
@@ -101,21 +140,6 @@ def execute_write_statement(
 async def generate_transaction_args(instance: str, database: str) -> Tuple:
     client = await get_database_client(instance, database)
     return (client,)
-
-
-def read_operation(
-    db_client: spanner_admin_database_v1.types.Database,
-) -> Awaitable[OperationResults]:
-    stmt = random.choice(READ_STATEMENTS)
-    return perform_operation(db_client, "read", stmt)
-
-
-def write_operation(
-    db_client: spanner_admin_database_v1.types.Database,
-) -> Awaitable[OperationResults]:
-    get_write_statement = random.choice(WRITE_STATEMENTS)
-    stmt = get_write_statement()
-    return perform_operation(db_client, "write", stmt)
 
 
 async def perform_operation(

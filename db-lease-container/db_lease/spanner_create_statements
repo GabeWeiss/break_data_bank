@@ -1,4 +1,4 @@
 CREATE TABLE colors (id INT64, color STRING(256), hex STRING(8),) PRIMARY KEY(id)
 CREATE TABLE shapes (id INT64, shape STRING(40), sides INT64,) PRIMARY KEY(id)
 CREATE TABLE artists (id INT64, artist STRING(255), age INT64,) PRIMARY KEY(id)
-CREATE TABLE pictures (id INT64, lineColor INT64, fillColor INT64, shape1 INT64, shape2 INT64, artist INT64,) PRIMARY KEY(id)
+CREATE TABLE pictures (id STRING(36), lineColor INT64, fillColor INT64, shape1 INT64, shape2 INT64, artist INT64,) PRIMARY KEY(id)

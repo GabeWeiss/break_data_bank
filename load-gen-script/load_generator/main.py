@@ -39,10 +39,11 @@ CLOUD_SQL = 1
 CLOUD_SQL_REPLICA = 2
 CLOUD_SPANNER = 3
 
+# Load patterns tuple are number of seconds, qps
 LOAD_PATTERNS = {
-    TRAFFIC_LOW:[(10, 10)],  # 10s @ 10 qps
-    TRAFFIC_HIGH:[(10, 50)],  # 10s @ 50 qps
-    TRAFFIC_SPIKEY:[(2, 50), (2, 10), (2, 50), (2,10), (2, 50)] # spikey load
+    TRAFFIC_LOW : [(10, 10)],
+    TRAFFIC_HIGH : [(10, 50)],
+    TRAFFIC_SPIKEY : [(2, 50), (2, 10), (2, 50), (2,10), (2, 50)]
 }
 
 async def schedule_at(start_time: float, func: Callable[[], Awaitable]):
