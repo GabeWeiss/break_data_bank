@@ -1,0 +1,6 @@
+# Run a cached fail run with a consistent low read pattern, and a spikey write pattern
+curl -X POST --header 'Content-Type: application/json' --data '{"mode":"fail","read_pattern":1,"write_pattern":3}' https://breaking-orchestrator-abqdciqyya-uw.a.run.app/cached
+
+# Run a cached real run with consistent high read/write pattern, max intensity, against the smallest SQL instance, large replica instance, and medium spanner instance
+curl -X POST --header 'Content-Type: application/json' --data '{"mode":"run","read_pattern":2,"write_pattern":2,"intensity":3,"sql_size":1,"sql_rep_size":3,"spanner_size":2}' https://breaking-orchestrator-abqdciqyya-uw.a.run.app/cached
+

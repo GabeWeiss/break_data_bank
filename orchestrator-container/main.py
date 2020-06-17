@@ -61,7 +61,7 @@ async def index():
             <li>run</li>
             <li>cached</li>
         </ul>
-    </body></html>"""
+    </body></html>\n"""
 
 async def fetch_resource_id(db_type, db_size, duration):
     parameters = {'database_type':db_type,'database_size':db_size,'duration':duration}
