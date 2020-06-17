@@ -16,11 +16,11 @@ flag_authenticate_gcloud                 = 0
 flag_authorize_gcloud_docker             = 0
 flag_enable_gcp_services                 = 0
 flag_setup_and_fetch_service_account     = 1
-flag_setup_firestore                     = 1
+flag_setup_firestore                     = 0
 flag_create_vpc                          = 0
 flag_create_pubsub                       = 0
-flag_deploy_db_lease_service             = 0
 flag_create_db_instances                 = 0
+flag_deploy_db_lease_service             = 1
 flag_add_dbs_to_firestore                = 0
 flag_build_and_deploy_loadgen_containers = 0
 flag_build_and_deploy_orchestrator       = 0
@@ -203,28 +203,6 @@ if flag_create_pubsub and not run_cached:
 ## Create Database instances ##
 ###############################
 
-if flag_deploy_db_lease_service and not run_cached:
-    # First we need to deploy our db-lease service because it manages adding our db metadata
-    # to the Firestore instance
-    print("Deploying database lease container\n")
-    time_tracker = current_time()
-
-    if not build_helpers.deploy_db_resource_container(project_id):
-        sys.exit(1)
-
-    time_tracker = round(current_time() - time_tracker, 2)
-    print(f"  Successfully deployed database lease container in {time_tracker} seconds\n")
-
-    print("Deploying database lease Cloud Run service\n")
-    time_tracker = current_time()
-
-    db_resource_url = build_helpers.deploy_db_resource_service(service_account, run_region, project_id)
-    if db_resource_url == None:
-        sys.exit(1)
-
-    time_tracker = round(current_time() - time_tracker, 2)
-    print(f"  Successfully deployed database lease service in {time_tracker} seconds\n")
-
 db_name_version = "1"
 # Note, for the meta data insertion to work, the name of the instance must
 # have "sm" in it for db_size = 1, "med" for db_size = 2, and "lrg" for
@@ -266,6 +244,32 @@ if flag_create_db_instances and not run_cached:
 
     time_tracker = round(current_time() - time_tracker, 2)
     print(f"  Finished creating Cloud Spanner instances in {time_tracker} seconds\n")
+
+#######################################
+## Deploy DB Lease Container/Service ##
+#######################################
+
+if flag_deploy_db_lease_service and not run_cached:
+    # First we need to deploy our db-lease service because it manages adding our db metadata
+    # to the Firestore instance
+    print("Deploying database lease container\n")
+    time_tracker = current_time()
+
+    if not build_helpers.deploy_db_resource_container(project_id):
+        sys.exit(1)
+
+    time_tracker = round(current_time() - time_tracker, 2)
+    print(f"  Successfully deployed database lease container in {time_tracker} seconds\n")
+
+    print("Deploying database lease Cloud Run service\n")
+    time_tracker = current_time()
+
+    db_resource_url = build_helpers.deploy_db_resource_service(service_account, run_region, project_id, instance_names, sql_region)
+    if db_resource_url == None:
+        sys.exit(1)
+
+    time_tracker = round(current_time() - time_tracker, 2)
+    print(f"  Successfully deployed database lease service in {time_tracker} seconds\n")
 
 
 #######################################

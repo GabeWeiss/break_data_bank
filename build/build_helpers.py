@@ -757,7 +757,7 @@ def are_firestore_indexes_ready(sleep_time):
 
     return True, False
 
-def deploy_db_resource_service(service_account, region, project_id):
+def deploy_db_resource_service(service_account, region, project_id, sql_names, sql_region):
     service_name = "breaking-db-lease"
     sleep_time = 10 # start at a 10 second retry
     ready = False
@@ -779,7 +779,17 @@ def deploy_db_resource_service(service_account, region, project_id):
                 print("   Firstore indexes never appear to have gotten set. You can check manually for when they're done by running:\n\ngcloud alpha firestore indexes composite list --format=flattened\n\nAnd you should get back something that doesn't look like two empty values. If you don't see that, you should be able to check the progress in the console or by re-running that command. Once it's all set, re-run the script and it should get past this point.\n")
                 return None
 
-    proc = subprocess.run([f"gcloud run deploy {service_name} --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --update-env-vars=DB_NAME={DATABASE_NAME},DB_USER={DB_USER},DB_PASSWORD={DATABASE_PASSWORD},PROD=1 --image=gcr.io/{project_id}/breaking-db-lease"], shell=True, capture_output=True, text=True)
+    # We need to generate the names for the SQL instances
+    # to pass to the gcloud run deploy command to link the
+    # Cloud SQL instances so they can connect for cleaning
+    instances_param = ""
+    for name in sql_names:
+        line = f"{project_id}:{sql_region}:{name},{project_id}:{sql_region}:{name}-r,"
+        instances_param = f"{instances_param}{line}"
+    # Strip off the final comma, we don't need it
+    instances_param = instances_param[:-1]
+
+    proc = subprocess.run([f"gcloud run deploy {service_name} --platform=managed --port=5000 --allow-unauthenticated --service-account={service_account} --region={region} --update-env-vars=DB_NAME={DATABASE_NAME},DB_USER={DATABASE_USER},DB_PASSWORD={DATABASE_PASSWORD},PROD=1 --image=gcr.io/{project_id}/breaking-db-lease --add-cloudsql-instances={instances_param}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         print("   Couldn't start the db-lease Cloud Run service")
         print(proc.stderr)
