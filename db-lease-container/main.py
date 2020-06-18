@@ -163,7 +163,7 @@ async def lease_resource():
     }
 
     if req_data["database_type"] == CLOUD_SQL_READ_REPLICA:
-        response["replica_ip"] == leased_resource.get("replica_ip")
+        response["replica_ip"] = leased_resource.get("replica_ip")
 
     return jsonify(response), 200
 
