@@ -232,12 +232,12 @@ async def clean_instances(db: firestore.Client, logger: logging.Logger):
     for resource in resources:
         db_type = resource.get("database_type")
         db_size = resource.reference.parent.parent.id
-        if db_type == "cloud-sql":
+        if db_type == "cloud-sql" or db_type == "cloud-sql-read-replica":
             success = await clean_cloud_sql_instance(resource.id, logger)
         elif db_type == "spanner":
             success = await clean_spanner_instance(resource.id, logger)
         else:
-            print("WTF YOU SEND ME?! I DON'T UNDERSTAND")
+            print(f"WTF YOU SEND ME?! I DON'T UNDERSTAND: {db_type}")
             return
         if success:
             await set_status_to_ready(db, db_type, db_size, resource.id)
