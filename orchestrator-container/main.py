@@ -139,21 +139,22 @@ async def fail():
     except: 
         return "\nMissing required parameters ('read_pattern', 'write_pattern'), please ensure you have everything in your POST method.\n", 400
 
-    jobs_id = await set_firestore(CLOUD_SQL, 1, int(read_pattern), int(write_pattern), 3, 3)
+    intensity = 3
+    jobs_id = await set_firestore(CLOUD_SQL, 1, int(read_pattern), intensity, int(write_pattern), intensity)
     if jobs_id == -1:
         return "Unable to create a load job.", 503
 
     connection_string, replica_ip = await fetch_resource_id(CLOUD_SQL, 1, gDuration)
     if connection_string == None:
-        return "Unable to fetch an available database resource.", 503
+        return "Unable to fetch an available Cloud SQL resource.", 503
     
         # Starting up load gen!
     run_result = await do_run(connection_string,
                               replica_ip,
                               jobs_id,
                               CLOUD_SQL,
-                              read_pattern, 3,
-                              write_pattern, 3)
+                              read_pattern, intensity,
+                              write_pattern, intensity)
     print(run_result)
 
     return '{{ "jobs_id": "{}" }}'.format(jobs_id), 200
@@ -172,53 +173,76 @@ async def run():
     except: 
         return "\nMissing required parameters:\n 'read_pattern'\n 'write_pattern'\n 'intensity'\n 'sql_size'\n 'sql_rep_size'\n 'spanner_size'\nEnsure you have them in your POST method.\n\n", 400
 
-    job_ids = []
-    job_ids.append( await set_firestore(CLOUD_SQL,
-                                     int(sql_size),
-                                     int(read_pattern),
-                                     int(write_pattern),
-                                     int(intensity),
-                                     int(intensity))
-                )
-    job_ids.append( await set_firestore(CLOUD_SQL_REPLICA,
+
+    return_json = '{ "job_ids": ['
+
+    try:
+        job_id = await set_firestore(CLOUD_SQL,
+                                    int(sql_size),
+                                    int(read_pattern),
+                                    int(intensity),
+                                    int(write_pattern),
+                                    int(intensity))
+        return_json = return_json + f"\"{job_id}\","
+    except:
+        return "Unable to create load job for Cloud SQL.", 503
+
+    connection_string, replica_ip = await fetch_resource_id(CLOUD_SQL, sql_size, gDuration)
+    if connection_string == None:
+        return "Unable to fetch an available Cloud SQL resource.", 503
+    run_result = await do_run(connection_string,
+                              replica_ip,
+                              job_id,
+                              CLOUD_SQL,
+                              read_pattern, intensity,
+                              write_pattern, intensity)
+    print(run_result)
+
+    try:
+        job_id = await set_firestore(CLOUD_SQL_REPLICA,
                                      int(sql_rep_size),
                                      int(read_pattern),
                                      int(write_pattern),
                                      int(intensity),
                                      int(intensity))
-                )
-    job_ids.append( await set_firestore(CLOUD_SPANNER,
+        return_json = return_json + f"\"{job_id}\","
+    except:
+        return "Unable to create load job for Cloud SQL Replica.", 503
+
+    connection_string, replica_ip = await fetch_resource_id(CLOUD_SQL_REPLICA, sql_rep_size, gDuration)
+    if connection_string == None:
+        return "Unable to fetch an available Cloud SQL Replica resource.", 503
+    run_result = await do_run(connection_string,
+                              replica_ip,
+                              job_id,
+                              CLOUD_SQL_REPLICA,
+                              read_pattern, intensity,
+                              write_pattern, intensity)
+    print(run_result)
+
+    try:
+        job_id = await set_firestore(CLOUD_SPANNER,
                                      int(spanner_size),
                                      int(read_pattern),
                                      int(write_pattern),
                                      int(intensity),
                                      int(intensity))
-                )
-    jobs_len = len(job_ids)
-    if jobs_len < 3:
-        return "Unable to create load jobs.", 503
+        return_json = return_json + f"\"{job_id}\"] }}"
+    except:
+        return "Unable to create load job for Spanner.", 503
 
-    resource_ids = []
-    resource_ids.append( await fetch_resource_id(CLOUD_SQL, sql_size, gDuration))
-    resource_ids.append( await fetch_resource_id(CLOUD_SQL_REPLICA, sql_rep_size, gDuration))
-    resource_ids.append( await fetch_resource_id(CLOUD_SPANNER, spanner_size, gDuration))
-    
-    if len(resource_ids) < 1:
-        return "Unable to fetch an available database resource.", 503
+    connection_string, replica_ip = await fetch_resource_id(CLOUD_SPANNER, spanner_size, gDuration)
+    if connection_string == None:
+        return "Unable to fetch an available Cloud Spanner resource.", 503
+    run_result = await do_run(connection_string,
+                              replica_ip,
+                              job_id,
+                              CLOUD_SPANNER,
+                              read_pattern, intensity,
+                              write_pattern, intensity)
+    print(run_result)
 
-        # Starting up load gen!
-    run_result = await do_run(resource_id, jobs_id, CLOUD_SQL,
-                              read_pattern, 3,
-                              write_pattern, 3)
-
-    return_json = '{ "job_ids": ['
-    for x in range(jobs_len):
-        return_json = return_json + "\"{}\"".format(job_ids[x])
-        if x < jobs_len - 1:
-            return_json = return_json + ","
-    return_json = return_json + "] }"
-
-    return "\n{}\n".format(return_json), 200
+    return f"\n{return_json}\n", 200
 
 @app.route('/cached', methods=['POST'])
 async def cached():
