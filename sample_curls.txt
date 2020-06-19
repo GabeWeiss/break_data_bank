@@ -6,3 +6,6 @@ curl -X POST --header 'Content-Type: application/json' --data '{"mode":"run","re
 
 # Do a full run of the fail case (smallest Cloud SQL instance, highest intensity) with low consistent reads, and spikey writes
 curl -X POST --header 'Content-Type: application/json' --data '{"read_pattern":2,"write_pattern":3}' https://breaking-orchestrator-abqdciqyya-uw.a.run.app/fail
+
+# Do a full run against all 3 databases. This is a low consistent read, high consistent write, against medium instances of all 3
+curl -X POST --header 'Content-Type: application/json' --data '{"read_pattern":1,"write_pattern":2,"intensity":1,"sql_size":2,"sql_rep_size":2,"spanner_size":2}' https://breaking-orchestrator-abqdciqyya-uw.a.run.app/run
