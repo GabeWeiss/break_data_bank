@@ -210,18 +210,10 @@ def fetch_pubsub_topic(pubsub, project_id):
     # We shouldn't ever have None here since there's a default
     # value in the args parsing, so it'll be an error condition
     if pubsub == None:
-        print("   Something really bad happened fetching the Pub/Sub topic")
+        print("   Something really bad happened fetching the Pub/Sub topic because it's None")
         return None
 
-    x = re.match('^projects/', pubsub)
-    # If we haven't started with projects/ then we know we need to
-    # put it into the proper full format
-    if not x:
-        pubsub = f'projects/{project_id}/topics/{pubsub}'
-    if pubsub != None:
-        print("   Something really bad happened fetching the Pub/Sub topic")
-        return pubsub
-    return None
+    return pubsub
 
 def create_pubsub_topic(pubsub_topic):
     proc = subprocess.run([f"gcloud pubsub topics create {pubsub_topic}"], shell=True, capture_output=True, text=True)
@@ -940,7 +932,9 @@ def create_storage_bucket(project, region):
     return bucket_name
 
 def deploy_dataflow(service_account, project_id, region, gcp_bucket, pubsub_topic):
-    build_proc = subprocess.run([f'mvn -e compile exec:java -Dexec.mainClass=com.google.devrel.breaking.BreakingDataTransactions -Dexec.args="--runner=DataflowRunner --serviceAccount={service_account} --project={project_id} --region={region} --gcpTempLocation={gcp_bucket}tmp --pubsubTopic={pubsub_topic}" 2>&1'], shell=True, capture_output=True, text=True, cwd='../dataflow-transactions')
+    # Need the full pubsub topic, so generate it here
+    full_pubsub = f'projects/{project_id}/topics/{pubsub_topic}'
+    build_proc = subprocess.run([f'mvn -e compile exec:java -Dexec.mainClass=com.google.devrel.breaking.BreakingDataTransactions -Dexec.args="--runner=DataflowRunner --serviceAccount={service_account} --project={project_id} --region={region} --gcpTempLocation={gcp_bucket}tmp --pubsubTopic={full_pubsub}" 2>&1'], shell=True, capture_output=True, text=True, cwd='../dataflow-transactions')
     if build_proc.returncode != 0:
         print("There was a problem deploying the Dataflow pipeline")
         print(build_proc.stdout)
