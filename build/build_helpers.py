@@ -632,6 +632,7 @@ def adjust_config_yaml(project, pubsub, version, k8s_sa):
     try:
         with open(filename, 'w') as file:
             file.write(filedata)
+            file.close()
     except:
         print("Couldn't write out the load gen service config yaml file\n")
         return False

@@ -22,9 +22,9 @@ flag_create_pubsub                       = 0
 flag_create_db_instances                 = 0
 flag_deploy_db_lease_service             = 1
 flag_add_dbs_to_firestore                = 0
-flag_build_and_deploy_loadgen_containers = 0
-flag_build_and_deploy_orchestrator       = 0
-flag_deploy_cloud_run_services           = 0
+flag_build_and_deploy_loadgen_containers = 1
+flag_build_and_deploy_orchestrator       = 1
+flag_deploy_cloud_run_services           = 1
 flag_deploy_k8s_cluster                  = 0
 flag_deploy_dataflow                     = 0
 
@@ -310,6 +310,19 @@ if flag_build_and_deploy_loadgen_containers and not run_cached:
     time_tracker = round(current_time() - time_tracker, 2)
     print(f"   Generated config file in {time_tracker} seconds")
 
+    # We need to adjust our config.yaml in the load-gen-service container
+    # So that it gets the correct load-gen-script container to deploy to k8s
+    if not run_cached:
+        print("Creating the config yaml file for the load gen service")
+        time_tracker = current_time()
+
+        if not build_helpers.adjust_config_yaml(project_id, pubsub_topic, args.version, k8s_service_account):
+            sys.exit(1)
+
+        time_tracker = round(current_time() - time_tracker, 2)
+        print(f"  Adjusted config.yaml in {time_tracker} seconds\n")
+
+
     print("Starting to build and deploy loadgen microservice containers\n")
     time_tracker = current_time()
 
@@ -336,16 +349,6 @@ if flag_build_and_deploy_orchestrator:
 
 orchestrator_url = None
 if flag_deploy_cloud_run_services:
-    if not run_cached:
-        print("Creating the config yaml file for the load gen service")
-        time_tracker = current_time()
-
-        if not build_helpers.adjust_config_yaml(project_id, pubsub_topic, args.version, k8s_service_account):
-            sys.exit(1)
-
-        time_tracker = round(current_time() - time_tracker, 2)
-        print(f"  Created in {time_tracker} seconds\n")
-
     print("Starting to deploy Cloud Run services. This will take a bit for each one\n")
     time_tracker = current_time()
 
