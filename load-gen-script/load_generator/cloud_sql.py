@@ -118,6 +118,7 @@ async def perform_operation(
                     stmt = await conn.fetch(statement, timeout=time_left)
     except Exception as ex:
         success = False
+        logger.warning(f"Statement: {statement}")
         logger.warning("Transaction failed with exception: %s", ex)
 
     return (

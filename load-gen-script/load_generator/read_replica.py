@@ -14,49 +14,55 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncpg
 import logging
+import random
 import time
 from typing import Awaitable, Tuple
-import asyncpg
-import random
 import uuid
-from .utils import Timer, OperationResults
 
+from . import db_limits
+from .utils import Timer, OperationResults
 
 logger = logging.getLogger(__name__)
 
 POOL_SIZE = 20
 TIMEOUT = 5
 
-# DDL for creating table:
-# CREATE TABLE shapes (
-#     uuid VARCHAR(255) PRIMARY KEY,
-#     fillColor VARCHAR(255),
-#     lineColor VARCHAR(255),
-#     shape VARCHAR(255)
-# );
-
-
 READ_STATEMENTS = [
-    "SELECT * from shapes",
-    "SELECT fillColor from shapes",
-    "SELECT lineColor from shapes WHERE fillColor='red'",
-]
-
+    "SELECT * from pictures",
+    "SELECT colors.color FROM pictures JOIN colors ON pictures.fillColor=colors.id",
+    "SELECT shapes1.shape, shapes2.shape FROM pictures JOIN shapes AS shapes1 ON pictures.shape1 = shapes1.id JOIN shapes AS shapes2 ON pictures.shape2 = shapes2.id",
+    "SELECT color1.color AS lineColor, color2.color as fillColor, shapes1.shape AS shape1, shapes2.shape as shape2, artists.artist FROM pictures JOIN colors AS color1 ON pictures.lineColor = color1.id JOIN colors AS color2 on pictures.fillColor = color2.id JOIN shapes AS shapes1 ON pictures.shape1 = shapes1.id JOIN shapes AS shapes2 ON pictures.shape2 = shapes2.id JOIN artists ON pictures.artist = artists.id",
+    "SELECT COUNT(*) FROM pictures"
+    ]
 
 def insert_new_row() -> str:
-    return "INSERT INTO shapes (uuid, fillColor, lineColor, shape) VALUES ('{}', 'red', 'black', 'square')".format(
-        uuid.uuid4()
-    )
+    return "INSERT INTO pictures (lineColor, fillColor, shape1, shape2, artist) VALUES ('{}', '{}', '{}', '{}', '{}')"
 
+def update_lineColor() -> str:
+    return "UPDATE pictures SET lineColor={} WHERE fillColor={}"
 
-def update_row() -> str:
-    return "UPDATE shapes SET lineColor='black' WHERE fillColor='red'"
+def update_fillColor() -> str:
+    return "UPDATE pictures SET fillColor={} WHERE lineColor={}"
 
+def update_shape1() -> str:
+    return "UPDATE pictures SET shape1={} WHERE shape2={}"
 
-WRITE_STATEMENTS = [
-    insert_new_row,
-    update_row,
+def update_shape2() -> str:
+    return "UPDATE pictures SET shape2={} WHERE shape1={}"
+
+def update_artist() -> str:
+    return "UPDATE pictures SET artist={} WHERE artist={}"
+
+UPDATE_COLOR = [
+    update_lineColor(),
+    update_fillColor()
+]
+
+UPDATE_SHAPE = [
+    update_shape1(),
+    update_shape2(),
 ]
 
 async def generate_transaction_args(
@@ -74,7 +80,7 @@ async def generate_transaction_args(
         database=database,
         user=user,
         password=password,
-        min_size=20,
+        min_size=1,
         max_size=20,
     )
     replica_pool = await asyncpg.create_pool(
@@ -83,7 +89,7 @@ async def generate_transaction_args(
         database=database,
         user=user,
         password=password,
-        min_size=20,
+        min_size=1,
         max_size=20,
     )
     return (
@@ -105,11 +111,21 @@ def read_operation(
 def write_operation(
     primary_pool: asyncpg.pool, replica_pool: asyncpg.pool
 ) -> Awaitable[OperationResults]:
-    get_write_statement = random.choice(WRITE_STATEMENTS)
-    stmt = get_write_statement()
-    pool = primary_pool  # all write operations go to the primary db
-    return perform_operation(pool, "write", stmt)
-
+        # all write operations go to the primary db
+    pool = primary_pool
+    rand = random.randint(1,10)
+    if rand < 8:
+        stmt = insert_new_row()
+        return perform_operation(pool, "write", stmt.format(db_limits.random_color(), db_limits.random_color(), db_limits.random_shape(), db_limits.random_shape(), db_limits.random_artist()))
+    elif rand == 8:
+        stmt = random.choice(UPDATE_COLOR)
+        return perform_operation(pool, "write", stmt.format(db_limits.random_color(), db_limits.random_color()))
+    elif rand == 9:
+        stmt = random.choice(UPDATE_SHAPE)
+        return perform_operation(pool, "write", stmt.format(db_limits.random_shape(), db_limits.random_shape()))
+    elif rand == 10:
+        stmt = update_artist()
+        return perform_operation(pool, "write", stmt.format(db_limits.random_artist(), db_limits.random_artist()))
 
 async def perform_operation(
     pool: asyncpg.pool, operation: str, statement: str, timeout: float = 5
@@ -127,6 +143,7 @@ async def perform_operation(
                     stmt = await conn.fetch(statement, timeout=time_left)
     except Exception as ex:
         success = False
+        logger.warning(f"Statement: {statement}")
         logger.warning("Transaction failed with exception: %s", ex)
 
     return (

@@ -29,16 +29,6 @@ from .utils import Timer, OperationResults
 
 logger = logging.getLogger(__name__)
 
-# DDL to create table:
-
-# CREATE TABLE shapes (
-# 	uuid STRING(MAX) NOT NULL,
-# 	fillColor STRING(MAX),
-# 	lineColor STRING(MAX),
-# 	shape STRING(MAX),
-# ) PRIMARY KEY (uuid)
-
-
 READ_STATEMENTS = [
     "SELECT * from pictures",
     "SELECT colors.color FROM pictures JOIN colors ON pictures.fillColor=colors.id",
@@ -164,6 +154,7 @@ async def perform_operation(
                 results = await execute_write_statement(db_client, statement, time_left)
     except Exception as ex:
         success = False
+        logger.warning(f"Statement: {statement}")
         logger.warning("Transaction failed with exception: %s", ex)
 
     return (
