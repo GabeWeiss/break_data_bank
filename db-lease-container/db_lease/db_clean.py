@@ -15,7 +15,7 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 # Change this to adjust how often the DB cleanup happens
-DB_CLEANUP_INTERVAL = 3
+DB_CLEANUP_INTERVAL = 120
 MAX_RETRY_SECONDS = 120
 
 
