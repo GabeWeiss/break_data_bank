@@ -246,4 +246,13 @@ def main():
     root_logger.addHandler(handler)
     root_logger.setLevel(logging.INFO if not args.verbose else logging.DEBUG)
 
+    root_logger.info(f"Starting run for:\n"
+                     f" Database type:\t\t{args.target_type}\n"
+                     f" Read pattern:\t\t{args.read_pattern}\n"
+                     f" Write pattern:\t\t{args.write_pattern}\n"
+                     f" Database name:\t\t{args.database}\n"
+                     f" Connection string:\t{args.connection_string}\n"
+                     f" Database user:\t\t{args.user}\n"
+    )
+
     asyncio.run(generate_load(args))
