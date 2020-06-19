@@ -148,6 +148,17 @@ async def fail():
     if connection_string == None:
         return "Unable to fetch an available Cloud SQL resource.", 503
     
+    # DEBUG
+    print(f"Orchestrator sending to load gen for the fail case:\n"
+          f" Connection String:\t{connection_string}\n"
+          f" Replica IP:\t\t{replica_ip}\n"
+          f" Jobs ID:\t\t{jobs_id}\n"
+          f" Read Pattern:\t\t{read_pattern}\n"
+          f" Read Intensity:\t\t{intensity}\n"
+          f" Write Pattern:\t\t{write_pattern}\n"
+          f" Write Intensity:\t{intensity}\n"    
+    )
+
         # Starting up load gen!
     run_result = await do_run(connection_string,
                               replica_ip,
@@ -155,7 +166,6 @@ async def fail():
                               CLOUD_SQL,
                               read_pattern, intensity,
                               write_pattern, intensity)
-    print(run_result)
 
     return '{{ "jobs_id": "{}" }}'.format(jobs_id), 200
 
@@ -173,7 +183,6 @@ async def run():
     except: 
         return "\nMissing required parameters:\n 'read_pattern'\n 'write_pattern'\n 'intensity'\n 'sql_size'\n 'sql_rep_size'\n 'spanner_size'\nEnsure you have them in your POST method.\n\n", 400
 
-
     return_json = '{ "job_ids": ['
 
     try:
@@ -190,6 +199,19 @@ async def run():
     connection_string, replica_ip = await fetch_resource_id(CLOUD_SQL, sql_size, gDuration)
     if connection_string == None:
         return "Unable to fetch an available Cloud SQL resource.", 503
+
+        # DEBUG
+    print(f"Orchestrator sending to load gen for the run Cloud SQL case:\n"
+          f" Database size:\t\t{sql_size}\n"
+          f" Connection String:\t{connection_string}\n"
+          f" Replica IP:\t\t{replica_ip}\n"
+          f" Jobs ID:\t\t{job_id}\n"
+          f" Read Pattern:\t\t{read_pattern}\n"
+          f" Read Intensity:\t\t{intensity}\n"
+          f" Write Pattern:\t\t{write_pattern}\n"
+          f" Write Intensity:\t{intensity}\n"    
+    )
+
     run_result = await do_run(connection_string,
                               replica_ip,
                               job_id,
@@ -202,8 +224,8 @@ async def run():
         job_id = await set_firestore(CLOUD_SQL_REPLICA,
                                      int(sql_rep_size),
                                      int(read_pattern),
-                                     int(write_pattern),
                                      int(intensity),
+                                     int(write_pattern),
                                      int(intensity))
         return_json = return_json + f"\"{job_id}\","
     except:
@@ -212,6 +234,19 @@ async def run():
     connection_string, replica_ip = await fetch_resource_id(CLOUD_SQL_REPLICA, sql_rep_size, gDuration)
     if connection_string == None:
         return "Unable to fetch an available Cloud SQL Replica resource.", 503
+
+        # DEBUG
+    print(f"Orchestrator sending to load gen for the run Cloud SQL replica case:\n"
+          f" Database size:\t\t{sql_size}\n"
+          f" Connection String:\t{connection_string}\n"
+          f" Replica IP:\t\t{replica_ip}\n"
+          f" Jobs ID:\t\t{job_id}\n"
+          f" Read Pattern:\t\t{read_pattern}\n"
+          f" Read Intensity:\t\t{intensity}\n"
+          f" Write Pattern:\t\t{write_pattern}\n"
+          f" Write Intensity:\t{intensity}\n"    
+    )
+
     run_result = await do_run(connection_string,
                               replica_ip,
                               job_id,
@@ -224,8 +259,8 @@ async def run():
         job_id = await set_firestore(CLOUD_SPANNER,
                                      int(spanner_size),
                                      int(read_pattern),
-                                     int(write_pattern),
                                      int(intensity),
+                                     int(write_pattern),
                                      int(intensity))
         return_json = return_json + f"\"{job_id}\"] }}"
     except:
@@ -234,6 +269,18 @@ async def run():
     connection_string, replica_ip = await fetch_resource_id(CLOUD_SPANNER, spanner_size, gDuration)
     if connection_string == None:
         return "Unable to fetch an available Cloud Spanner resource.", 503
+
+        # DEBUG
+    print(f"Orchestrator sending to load gen for the run Spanner case:\n"
+          f" Database size:\t\t{sql_size}\n"
+          f" Connection String:\t{connection_string}\n"
+          f" Jobs ID:\t\t{job_id}\n"
+          f" Read Pattern:\t\t{read_pattern}\n"
+          f" Read Intensity:\t\t{intensity}\n"
+          f" Write Pattern:\t\t{write_pattern}\n"
+          f" Write Intensity:\t{intensity}\n"    
+    )
+
     run_result = await do_run(connection_string,
                               replica_ip,
                               job_id,
