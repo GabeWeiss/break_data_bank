@@ -349,9 +349,14 @@ public class BreakingDataTransactions {
 
     @Override
     public ResultAggregate addInput(ResultAggregate mutableAccumulator, Data input) {
-      mutableAccumulator.count += 1;
-      mutableAccumulator.fail += (input.success) ? 0 : 1;
-      mutableAccumulator.latencySum += (input.transaction_end - input.transaction_start);
+      mutableAccumulator.totalCount += 1;
+      if (!input.success) {
+        mutableAccumulator.fail++;
+      }
+      else {
+        mutableAccumulator.latencySum += (input.transaction_end - input.transaction_start);
+        mutableAccumulator.latencyCount++;
+      }
       //System.out.println("addingInput");
       return mutableAccumulator;
     }
@@ -360,7 +365,8 @@ public class BreakingDataTransactions {
     public ResultAggregate mergeAccumulators(Iterable<ResultAggregate> accumulators) {
       ResultAggregate resultAggregate = createAccumulator();
       for (ResultAggregate r : accumulators) {
-        resultAggregate.count += r.count;
+        resultAggregate.totalCount += r.totalCount;
+        resultAggregate.latencyCount += r.latencyCount;
         resultAggregate.fail += r.fail;
         resultAggregate.latencySum += r.latencySum;
       }
@@ -370,8 +376,8 @@ public class BreakingDataTransactions {
     @Override
     public Result extractOutput(ResultAggregate accumulator) {
       Result result = new Result();
-      result.average_latency = accumulator.latencySum / accumulator.count;
-      result.failure_percent = ((float) accumulator.fail / (float) accumulator.count) * 100;
+      result.average_latency = accumulator.latencySum / (float) accumulator.latencyCount;
+      result.failure_percent = ((float) accumulator.fail / (float) accumulator.totalCount) * 100;
       //System.out.println("I'm extracting some output");
       return result;
     }
@@ -393,7 +399,8 @@ public class BreakingDataTransactions {
   public static class ResultAggregate {
     public int fail;
     public float latencySum;
-    public int count;
+    public int latencyCount;
+    public int totalCount;
   }
 
   @DefaultCoder(AvroCoder.class)
