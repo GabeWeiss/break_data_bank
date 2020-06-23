@@ -21,6 +21,7 @@
 <body>
     <div id="read_div"></div>
     <div id="write_div"></div>
+    <div id="fail_div"></div>
 
 <!-- The core Firebase JS SDK is always required and must be listed first -->
 <script src="https://www.gstatic.com/firebasejs/7.15.4/firebase-app.js"></script>
@@ -54,18 +55,24 @@
   function drawCharts() {
 
     // Create the data table.
-    var write_data = new google.visualization.DataTable();
-    write_data.addColumn('number', 'timestamp');
-    write_data.addColumn('number', 'write_latency');
-
     var read_data = new google.visualization.DataTable();
     read_data.addColumn('number', 'timestamp');
     read_data.addColumn('number', 'read_latency');
 
+    var write_data = new google.visualization.DataTable();
+    write_data.addColumn('number', 'timestamp');
+    write_data.addColumn('number', 'write_latency');
+
+    var fail_data = new google.visualization.DataTable();
+    fail_data.addColumn('number', 'timestamp');
+    fail_data.addColumn('number', 'failure_percent');
+
     read_table = [];
     write_table = [];
+    fail_table = [];
     r_i = 0;
     w_i = 0;
+    f_i = 0;
     transactions = db.collection("events").doc("next2020").collection("transactions").doc(job_id).collection("transactions").orderBy("timestamp");
     transactions.get().then(function(querySnapshot) {
       querySnapshot.forEach(function(doc) {
@@ -87,10 +94,14 @@
             write_table[w_i] = a;
             w_i = w_i + 1;
           }
-          console.log(a);
+
+          fail_table[f_i] = [(d['timestamp'] - start_time) / 1000, d['failure_percent']];
+          console.log(fail_table[f_i]);
+          f_i = f_i + 1;
       })
       write_data.addRows(write_table);
       read_data.addRows(read_table);
+      fail_data.addRows(fail_table);
           // Set chart options
       var write_options = {'title':'Write Latency',
                      'width':600,
@@ -104,14 +115,21 @@
                      'hAxis': {'title': 'Time (in seconds)'},
                      'vAxis': {'title': 'Latency (in milliseconds)'}};
 
+      var fail_options = {'title':'Fail Percentage',
+                     'width':600,
+                     'height':450,
+                     'hAxis': {'title': 'Time (in seconds)'},
+                     'vAxis': {'title': 'Failure Percent'}};
 
       // Instantiate and draw our charts, passing in some options.
-      var write_chart = new google.visualization.LineChart(document.getElementById('write_div'));
-      write_chart.draw(write_data, write_options);
-
       var read_chart = new google.visualization.LineChart(document.getElementById('read_div'));
       read_chart.draw(read_data, read_options);
 
+      var write_chart = new google.visualization.LineChart(document.getElementById('write_div'));
+      write_chart.draw(write_data, write_options);
+
+      var fail_chart = new google.visualization.LineChart(document.getElementById('fail_div'));
+      fail_chart.draw(fail_data, fail_options);
       })
   }
 
