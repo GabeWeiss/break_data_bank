@@ -96,7 +96,6 @@
           }
 
           fail_table[f_i] = [(d['timestamp'] - start_time) / 1000, d['failure_percent']];
-          console.log(fail_table[f_i]);
           f_i = f_i + 1;
       })
       write_data.addRows(write_table);
