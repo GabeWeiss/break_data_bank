@@ -26,9 +26,6 @@ from .utils import Timer, OperationResults
 
 logger = logging.getLogger(__name__)
 
-POOL_SIZE = 20
-TIMEOUT = 5
-
 READ_STATEMENTS = [
     "SELECT * from pictures",
     "SELECT colors.color FROM pictures JOIN colors ON pictures.fillColor=colors.id",

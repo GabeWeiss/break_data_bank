@@ -41,9 +41,9 @@ CLOUD_SPANNER = 3
 
 # Load patterns tuple are number of seconds, qps
 LOAD_PATTERNS = {
-    TRAFFIC_LOW : [(10, 10)],
-    TRAFFIC_HIGH : [(10, 50)],
-    TRAFFIC_SPIKEY : [(2, 50), (2, 10), (2, 50), (2,10), (2, 50)]
+    TRAFFIC_LOW : [(30, 10)],
+    TRAFFIC_HIGH : [(30, 50)],
+    TRAFFIC_SPIKEY : [(2, 100), (8, 20), (2, 75), (8,10), (2, 100), (8,10)]
 }
 
 async def schedule_at(start_time: float, func: Callable[[], Awaitable]):
@@ -78,6 +78,7 @@ def publish_results_from(
 
     async def publish_results():
         results = await operation()
+        logger.info(f"\nOperation: {results[0]}\nConnection time: {results[3] - results[2]}\nTransaction time: {results[5]-results[4]}\nSuccess: {results[1]}\n\n")
         await pub_queue.insert(
             {
                 "workload_id": workload_id,

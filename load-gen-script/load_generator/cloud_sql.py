@@ -27,9 +27,6 @@ from .utils import Timer, OperationResults
 
 logger = logging.getLogger(__name__)
 
-POOL_SIZE = 20
-TIMEOUT = 5
-
 async def generate_transaction_args(
     host: str, port: int, database: str, user: str, password: str
 ) -> Tuple:
