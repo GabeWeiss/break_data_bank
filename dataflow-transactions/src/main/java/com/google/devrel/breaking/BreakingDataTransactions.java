@@ -357,7 +357,6 @@ public class BreakingDataTransactions {
         mutableAccumulator.latencySum += (input.transaction_end - input.transaction_start);
         mutableAccumulator.latencyCount++;
       }
-      //System.out.println("addingInput");
       return mutableAccumulator;
     }
 
@@ -376,9 +375,8 @@ public class BreakingDataTransactions {
     @Override
     public Result extractOutput(ResultAggregate accumulator) {
       Result result = new Result();
-      result.average_latency = accumulator.latencySum / (float) accumulator.latencyCount;
+      result.average_latency = accumulator.latencySum / (double) accumulator.latencyCount;
       result.failure_percent = ((float) accumulator.fail / (float) accumulator.totalCount) * 100;
-      //System.out.println("I'm extracting some output");
       return result;
     }
   }
@@ -386,8 +384,8 @@ public class BreakingDataTransactions {
   @DefaultCoder(AvroCoder.class)
   public static class Data {
     public float connection_start;  // when connection started
-    public float transaction_start; // when transaction started
-    public float transaction_end;   // when transaction ended
+    public double transaction_start; // when transaction started
+    public double transaction_end;   // when transaction ended
     public float connection_end;    // when connection ended
     public boolean success;         // whether it succeeded or not
     public String operation;        // read/write
@@ -398,7 +396,7 @@ public class BreakingDataTransactions {
   @DefaultCoder(AvroCoder.class)
   public static class ResultAggregate {
     public int fail;
-    public float latencySum;
+    public double latencySum;
     public int latencyCount;
     public int totalCount;
   }
@@ -406,7 +404,7 @@ public class BreakingDataTransactions {
   @DefaultCoder(AvroCoder.class)
   public static class Result {
     public float failure_percent;
-    public float average_latency;
+    public double average_latency;
     @Nullable public String query_action;
     @Nullable public String job_id;
     public long timestamp;
@@ -518,7 +516,6 @@ public class BreakingDataTransactions {
     @ProcessElement
     public void process(@Element String input, @Timestamp Instant timestamp, OutputReceiver<T> o) {
       try {
-
         Type type = new TypeToken<List<T>>() {}.getType();
 
         List<T> array = gson.fromJson(input,type);
