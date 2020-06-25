@@ -35,7 +35,7 @@ CLOUD_SQL_REPLICA = 2
 CLOUD_SPANNER     = 3
 
 app = Quart(__name__)
-app = quart_cors.cors(app, allow_origin=["https://p-511-gcloud-dataservices-dev.appspot.com","https://p-511-gcloud-dataservices-stg.appspot.com","https://dplex-n20-breaking-databank.appspot.com","https://localhost:4200"])
+app = quart_cors.cors(app, allow_origin=["https://p-511-gcloud-dataservices-dev.appspot.com","https://p-511-gcloud-dataservices-stg.appspot.com","https://dplex-n20-breaking-databank.appspot.com","https://localhost:4200","https://showcase.withgoogle.com"])
 
 gDuration = 60 # represents the duration we're reserving an instance
 
