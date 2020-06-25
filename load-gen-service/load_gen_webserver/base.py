@@ -22,7 +22,7 @@ base = Blueprint("base", __name__)
 
 _k8s_batch_client: client = None
 
-INTENSITY_MULTIPLIER = 2
+INTENSITY_MULTIPLIER = 4
 
 @base.before_app_first_request
 async def _init_client():
