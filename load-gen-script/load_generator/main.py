@@ -78,17 +78,26 @@ def publish_results_from(
 
     async def publish_results():
         results = await operation()
-        logger.info(f"\nOperation: {results[0]}\nConnection time: {results[3] - results[2]}\nTransaction time: {results[5]-results[4]}\nSuccess: {results[1]}\n\n")
+        op = results[0]
+        success = results[1]
+        con_start = results[2]
+        con_end = results[3]
+        trans_start = results[4]
+        trans_end = results[5]
+
+#        if success == False:
+#            logger.info(f"\nOperation: {results[0]}\nConnection time: {results[3] - results[2]}\nTransaction time: {results[5]-results[4]}\n\n")
+
         await pub_queue.insert(
             {
                 "workload_id": workload_id,
                 "job_id": job_id,
-                "operation": results[0],
-                "success": results[1],
-                "connection_start": results[2],
-                "connection_end": results[3],
-                "transaction_start": results[4],
-                "transaction_end": results[5],
+                "operation": op,
+                "success": success,
+                "connection_start": con_start,
+                "connection_end": con_end,
+                "transaction_start": trans_start,
+                "transaction_end": trans_end,
             }
         )
 
