@@ -837,7 +837,7 @@ def get_orchestrator_url():
 def deploy_k8s(region, project, vpc):
     k8s_name = "breaking-cluster"
 
-    proc = subprocess.run([f"gcloud container clusters create {k8s_name} --num-nodes=5 --region={region} --enable-ip-alias --workload-pool={project}.svc.id.goog --network={vpc}"], shell=True, capture_output=True, text=True)
+    proc = subprocess.run([f"gcloud container clusters create {k8s_name} --num-nodes=10 --region={region} --enable-ip-alias --workload-pool={project}.svc.id.goog --network={vpc}"], shell=True, capture_output=True, text=True)
     if proc.returncode != 0:
         err = proc.stderr
         x = re.search("lready exists", err)
