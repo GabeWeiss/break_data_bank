@@ -22,6 +22,7 @@ base = Blueprint("base", __name__)
 
 _k8s_batch_client: client = None
 
+INTENSITY_MULTIPLIER = 2
 
 @base.before_app_first_request
 async def _init_client():
@@ -96,8 +97,8 @@ async def create_load_gen_job():
         spec=client.V1JobSpec(
             ttl_seconds_after_finished=60,
             # Set # of jobs to run
-            completions=intensity,
-            parallelism=intensity,
+            completions=intensity * INTENSITY_MULTIPLIER,
+            parallelism=intensity * INTENSITY_MULTIPLIER,
             # Don't retry jobs if they fail
             backoff_limit=0,
             # Container(s) the job should run
