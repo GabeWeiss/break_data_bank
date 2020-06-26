@@ -43,7 +43,7 @@ CLOUD_SPANNER = 3
 LOAD_PATTERNS = {
     TRAFFIC_LOW : [(30, 10)],
     TRAFFIC_HIGH : [(30, 50)],
-    TRAFFIC_SPIKEY : [(2, 100), (8, 20), (2, 75), (8,10), (2, 100), (8,10)]
+    TRAFFIC_SPIKEY : [(2, 60), (8, 10), (2, 60), (8,10), (2, 60), (8,10)]
 }
 
 async def schedule_at(start_time: float, func: Callable[[], Awaitable]):

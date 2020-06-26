@@ -22,7 +22,17 @@ base = Blueprint("base", __name__)
 
 _k8s_batch_client: client = None
 
-INTENSITY_MULTIPLIER = 4
+def intensity_multiplier(intensity):
+    if intensity <= 1:
+        return intensity
+    if intensity > 3:
+        return intensity
+    if intensity == 2:
+        return 4
+    if intensity == 3:
+        return 10
+    return 1
+    
 
 @base.before_app_first_request
 async def _init_client():
@@ -75,13 +85,16 @@ def load_gen_container(
 async def create_load_gen_job():
     data = await request.get_json()
 
-    # TODO: add better validation
-    job_id = data["job_id"]
-    database_type = data["database_type"]
-    connection_string = data["connection_string"]
-    read_pattern = data["read_pattern"]
-    write_pattern = data["write_pattern"]
-    intensity = data["intensity"]
+    try:
+        # TODO: add better validation
+        job_id = data["job_id"]
+        database_type = data["database_type"]
+        connection_string = data["connection_string"]
+        read_pattern = data["read_pattern"]
+        write_pattern = data["write_pattern"]
+        intensity = int(data["intensity"])
+    except:
+        return "There was a problem fetching our parameters", 500
 
     replica_ip = None
     try:
@@ -97,8 +110,8 @@ async def create_load_gen_job():
         spec=client.V1JobSpec(
             ttl_seconds_after_finished=60,
             # Set # of jobs to run
-            completions=intensity * INTENSITY_MULTIPLIER,
-            parallelism=intensity * INTENSITY_MULTIPLIER,
+            completions=intensity_multiplier(intensity),
+            parallelism=intensity_multiplier(intensity),
             # Don't retry jobs if they fail
             backoff_limit=0,
             # Container(s) the job should run
