@@ -97,7 +97,7 @@ async def clean_spanner_instance(resource_id: str, logger: logging.Logger):
         return False
 
     print("Dropped the db")
-    logger.info(f"Dropped db {DB_NAME} from instance {DB_NAME}")
+    print(f"Dropped db {DB_NAME} from instance {DB_NAME}")
 
     # Create a new "clean" database with the same name
     try:
@@ -111,7 +111,7 @@ async def clean_spanner_instance(resource_id: str, logger: logging.Logger):
     print("read the DDL statements")
     op = instance.database(DB_NAME, ddlStatements).create()
     #op.result()    
-    logger.info(f"Created db {DB_NAME} in instance {resource_id}")
+    print(f"Created db {DB_NAME} in instance {resource_id}")
     print("Created db")
     def insert_data(transaction):
         try:
@@ -150,26 +150,28 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
         args["host"] = f"/cloudsql/{resource_id}/.s.PGSQL.5432"
         del args["port"]
 
-    # Here's the connection to the postgres db
+    # Here's the connection to the postgres db and killing all other connections,
+    # Then re-connecting
     try:
         conn = await asyncpg.connect(**args,)
     except Exception as ex:
         print("Yeah no, couldn't connect to the postgres db")
-        print("Error connecting: %s", ex)
+        print(f"Error connecting: {ex}")
         return
 
     # Dropping and re-creating a clean db
     # Note, closing current connection at the
     # end of it
     try:
+        await conn.execute(f"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '{DB_NAME}' AND pid <> pg_backend_pid()")
         await conn.execute(f"DROP DATABASE IF EXISTS {DB_NAME}")
-        logger.info(f"Dropped db {DB_NAME} in {resource_id}")
+        print(f"Dropped db {DB_NAME} in {resource_id}")
         # Recreate the db
         await conn.execute(f"CREATE DATABASE {DB_NAME}")
-        logger.info(f"Recreated db {DB_NAME} in {resource_id}")
+        print(f"Recreated db {DB_NAME} in {resource_id}")
     except Exception as ex:
         print("Couldn't drop and recreate the database")
-        print("Error dropping: %s", ex)
+        print(f"Error dropping: {ex}")
         return False
     finally:   
         await conn.close()
@@ -180,18 +182,19 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
         conn = await asyncpg.connect(**args,)
     except Exception as ex:
         print(f"Yeah no, couldn't connect to the {DB_NAME} db")
-        print("Error connecting: %s", ex)
+        print(f"Error connecting: {ex}")
         return False
 
     try:
         # Recreate the tables
         f = open("./db_lease/sql_create_statements", "r")
         for statement in f:
+#            print(f" Executing: {statement}")
             await conn.execute(statement)
-        logger.info(f"Recreated tables for db {DB_NAME} in {resource_id}")
+        print(f"Recreated tables for db {DB_NAME} in {resource_id}")
     except Exception as ex:
         print("Wasn't able to re-create our tables")
-        print("Error: %s", ex)
+        print(f"Error: {ex}")
         return False
     finally:
         await conn.close()
