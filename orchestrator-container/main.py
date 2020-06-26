@@ -169,6 +169,56 @@ async def fail():
 
     return '{{ "jobs_id": "{}" }}'.format(jobs_id), 200
 
+@app.route('/single', methods=['POST'])
+async def single_run():
+    # validate we have the data we need from the caller
+    form = await request.json
+    try:
+        # Note, for fail run, these are the only two we care about
+        read_pattern = int(form["read_pattern"])
+        write_pattern = int(form["write_pattern"])
+        db_type = int(form["db_type"])
+        intensity = int(form["intensity"])
+        db_size = int(form["db_size"])
+    except: 
+        return "\nMissing required parameters ('read_pattern', 'write_pattern', 'db_type', 'intensity', 'db_size'), please ensure you have everything in your POST method.\n", 400
+
+    if db_type < CLOUD_SQL or db_type > CLOUD_SPANNER:
+        return "db_type must be 1-3 where 1 is Cloud SQL, 2 is Cloud SQL w/ Replication, and 3 is Cloud Spanner", 400
+
+    if db_size < 1 or db_size > 3:
+        return "db_size must be betwen 1-3 where 1 is small and 3 is large", 400
+
+    jobs_id = await set_firestore(db_type, db_size, read_pattern, intensity, write_pattern, intensity)
+    if jobs_id == -1:
+        return "Unable to create a load job.", 503
+
+    connection_string, replica_ip = await fetch_resource_id(db_type, db_size, gDuration)
+    if connection_string == None:
+        return "Unable to fetch an available Cloud SQL resource.", 503
+    
+    # DEBUG
+    print(f"Orchestrator sending to load gen for the fail case:\n"
+          f" Connection String:\t{connection_string}\n"
+          f" Replica IP:\t\t{replica_ip}\n"
+          f" Jobs ID:\t\t{jobs_id}\n"
+          f" Read Pattern:\t\t{read_pattern}\n"
+          f" Read Intensity:\t\t{intensity}\n"
+          f" Write Pattern:\t\t{write_pattern}\n"
+          f" Write Intensity:\t{intensity}\n"    
+    )
+
+        # Starting up load gen!
+    run_result = await do_run(connection_string,
+                              replica_ip,
+                              jobs_id,
+                              db_type,
+                              read_pattern, intensity,
+                              write_pattern, intensity)
+
+    return '{{ "jobs_id": "{}" }}'.format(jobs_id), 200
+
+
 @app.route('/run', methods=['POST'])
 async def run():
     # validate we have the data we need from the caller
