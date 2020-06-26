@@ -12,6 +12,7 @@ parser.add_argument("src_account", help="Source service account path")
 parser.add_argument("tgt_account", help="Target service account path")
 parser.add_argument("src_uri", help="Source data uri")
 parser.add_argument("tgt_uri", help="Target data uri")
+parser.add_argument("--seed", help="Add a seed value to the data as it moves over")
 
 args = parser.parse_args()
 
@@ -70,4 +71,7 @@ for tgt in tgt_folders:
 
 # And last, move our source documents into target collection
 for doc in docs:
-    tgt_ref.add(doc.to_dict())
+    doc_dict = doc.to_dict()
+    if args.seed:
+        doc_dict['seed'] = args.seed
+    tgt_ref.add(doc_dict)
