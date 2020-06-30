@@ -15,9 +15,7 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 # Change this to adjust how often the DB cleanup happens
-DB_CLEANUP_INTERVAL = 120
-MAX_RETRY_SECONDS = 120
-
+DB_CLEANUP_INTERVAL = 10
 
 @run_function_as_async
 def get_expired_resouces(db: firestore.Client):
@@ -62,6 +60,18 @@ def set_status_to_ready(
     )
     pool_ref.document(resource_id).update({"status": "ready"})
 
+@run_function_as_async
+def set_status_to_cleaning(
+    db: firestore.Client, db_type: str, db_size: str, resource_id: str
+):
+    pool_ref = (
+        db.collection("db_resources")
+        .document(db_type)
+        .collection("sizes")
+        .document(db_size)
+        .collection("resources")
+    )
+    pool_ref.document(resource_id).update({"status": "cleaning"})
 
 @run_function_as_async
 def set_status_to_down(
@@ -201,40 +211,13 @@ async def clean_cloud_sql_instance(resource_id: str, logger: logging.Logger):
 
     return True
 
-async def retry(db, resources, logger, interval=DB_CLEANUP_INTERVAL):
-    while resources:
-        if interval < MAX_RETRY_SECONDS:
-            interval *= 2
-        await asyncio.sleep(interval)
-
-        tasks = []
-        for resource in resources:
-            task = create_cleanup_task(resource, db, logger)
-            tasks.append(task)
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        retry_resources = []
-        for resource, result in zip(resources, results):
-            if isinstance(result, Exception):
-                # if fail
-                log_msg = f"Failed to reset resource {resource.id,}. Will retry in {interval}s"
-                logger.error(log_msg, exc_info=result)
-                retry_resources.append(resource)
-            else:
-                # if success, set status to ready so it can go back in the pool
-                db_type = resource.get("database_type")
-                db_size = resource.reference.parent.parent.id
-                await set_status_to_ready(db, db_type, db_size, resource.id)
-        resources = retry_resources
-
-
 async def clean_instances(db: firestore.Client, logger: logging.Logger):
     success = True
     resources = await get_expired_resouces(db)
     for resource in resources:
         db_type = resource.get("database_type")
         db_size = resource.reference.parent.parent.id
+        await set_status_to_cleaning(db, db_type, db_size, resource.id)
         if db_type == "cloud-sql" or db_type == "cloud-sql-read-replica":
             success = await clean_cloud_sql_instance(resource.id, logger)
         elif db_type == "spanner":
@@ -246,20 +229,6 @@ async def clean_instances(db: firestore.Client, logger: logging.Logger):
             await set_status_to_ready(db, db_type, db_size, resource.id)
 
     return
-
-
-
-    retry_resources = []
-    print("Starting to clean")
-    for resource, result in zip(resources, results):
-        db_type = resource.get("database_type")
-        db_size = resource.reference.parent.parent.id
-        if isinstance(result, Exception):
-            await set_status_to_down(db, db_type, db_size, resource.id)
-            retry_resources.append(resource)
-    print("Finished first attempt, moving to retry instances")
-    asyncio.create_task(retry(db, retry_resources, logger))
-
 
 async def loop_clean_instances(
     db: firestore.Client,
