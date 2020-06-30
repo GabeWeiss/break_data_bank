@@ -28,9 +28,9 @@ def intensity_multiplier(intensity):
     if intensity > 3:
         return intensity
     if intensity == 2:
-        return 4
+        return 6
     if intensity == 3:
-        return 10
+        return 12
     return 1
     
 
