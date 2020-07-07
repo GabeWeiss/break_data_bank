@@ -16,6 +16,7 @@ args = parser.parse_args()
 db = firestore.Client()
 
 JOBS_FILE = open("jobs_to_investigate.txt", "w")
+CACHED_DOC_NAME = "cached_staged"
 
 def doc_name(t, s):
     project_name = "break-data-bank"
@@ -153,7 +154,7 @@ for key in instance_keys:
 
     resource_ref = db.collection("db_resources").document(firestore_db_key).collection("sizes").document(db_size_key).collection("resources").document(doc_name(db_type, db_size))
 
-    traffic_base_ref = db.collection("events").document("next2020").collection("cached_1_6_12").document(key).collection("patterns")
+    traffic_base_ref = db.collection("events").document("next2020").collection(CACHED_DOC_NAME).document(key).collection("patterns")
 
     for pattern in traffic_patterns:
         traffic_ref = traffic_base_ref.document(pattern).collection("transactions")
