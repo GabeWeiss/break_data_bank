@@ -22,3 +22,5 @@ load-gen-service/config.yaml
 build/firestore_setup
 
 cloud_sql_proxy
+
+jobs_to_investigate*
