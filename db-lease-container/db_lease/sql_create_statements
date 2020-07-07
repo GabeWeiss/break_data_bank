@@ -42,4 +42,4 @@ INSERT INTO artists (artist, age) VALUES ('Larissa', 18);
 INSERT INTO artists (artist, age) VALUES ('Ruben', 39);
 INSERT INTO artists (artist, age) VALUES ('Karson', 22);
 INSERT INTO artists (artist, age) VALUES ('Yasmin', 71);
-CREATE TABLE pictures (lineColor int, fillColor int, shape1 int, shape2 int, artist int);
+CREATE TABLE pictures (id serial primary key, lineColor int, fillColor int, shape1 int, shape2 int, artist int);
