@@ -29,6 +29,9 @@ from .utils import Timer, OperationResults
 
 logger = logging.getLogger(__name__)
 
+inserted_uuids = []
+has_inserted = False
+
 READ_STATEMENTS = [
     "SELECT * from pictures",
     "SELECT colors.color FROM pictures JOIN colors ON pictures.fillColor=colors.id",
@@ -42,19 +45,19 @@ def insert_new_row() -> str:
     return "INSERT INTO pictures (id, lineColor, fillColor, shape1, shape2, artist) VALUES ('{}', {}, {}, {}, {}, {})"
 
 def update_lineColor() -> str:
-    return "UPDATE pictures SET lineColor={} WHERE fillColor={}"
+    return "UPDATE pictures SET lineColor={} WHERE id={}"
 
 def update_fillColor() -> str:
-    return "UPDATE pictures SET fillColor={} WHERE lineColor={}"
+    return "UPDATE pictures SET fillColor={} WHERE id={}"
 
 def update_shape1() -> str:
-    return "UPDATE pictures SET shape1={} WHERE shape2={}"
+    return "UPDATE pictures SET shape1={} WHERE id={}"
 
 def update_shape2() -> str:
-    return "UPDATE pictures SET shape2={} WHERE shape1={}"
+    return "UPDATE pictures SET shape2={} WHERE id={}"
 
 def update_artist() -> str:
-    return "UPDATE pictures SET artist={} WHERE artist={}"
+    return "UPDATE pictures SET artist={} WHERE id={}"
 
 UPDATE_COLOR = [
     update_lineColor(),
@@ -75,19 +78,24 @@ def read_operation(
 def write_operation(
     db_client: spanner_admin_database_v1.types.Database,
 ) -> Awaitable[OperationResults]:
+    global has_inserted
     rand = random.randint(1,10)
-    if rand < 8:
+    if has_inserted == False or rand < 8:
+        has_inserted = True
         stmt = insert_new_row()
-        return perform_operation(db_client, "write", stmt.format(uuid.uuid4(), db_limits.random_color(), db_limits.random_color(), db_limits.random_shape(), db_limits.random_shape(), db_limits.random_artist()))
+        n = uuid.uuid4()
+        inserted_uuids.append(n)
+        return perform_operation(db_client, "write", stmt.format(n, db_limits.random_color(), db_limits.random_color(), db_limits.random_shape(), db_limits.random_shape(), db_limits.random_artist()))
     elif rand == 8:
         stmt = random.choice(UPDATE_COLOR)
-        return perform_operation(db_client, "write", stmt.format(db_limits.random_color(), db_limits.random_color()))
+        return perform_operation(db_client, "write", stmt.format(db_limits.random_color(), random.choice(inserted_uuids)))
     elif rand == 9:
         stmt = random.choice(UPDATE_SHAPE)
-        return perform_operation(db_client, "write", stmt.format(db_limits.random_shape(), db_limits.random_shape()))
+        return perform_operation(db_client, "write", stmt.format(db_limits.random_shape(), random.choice(inserted_uuids)))
     elif rand == 10:
         stmt = update_artist()
-        return perform_operation(db_client, "write", stmt.format(db_limits.random_artist(), db_limits.random_artist()))
+        return perform_operation(db_client, "write", stmt.format(db_limits.random_artist(), random.choice(inserted_uuids)))
+    logger.info(stmt)
 
 
 def run_function_as_async(func):
@@ -122,7 +130,7 @@ def execute_write_statement(
     db_client: spanner_admin_database_v1.types.Database, statement: str, timeout: float
 ):
     def write_in_transaction(transaction):
-        transaction.execute_update(statement)
+        transaction.execute_sql(statement, timeout=timeout)
 
     db_client.run_in_transaction(write_in_transaction, timeout_secs=timeout)
 

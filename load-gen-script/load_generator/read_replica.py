@@ -17,6 +17,7 @@
 import asyncpg
 import logging
 import random
+import re
 import time
 from typing import Awaitable, Tuple
 import uuid
@@ -25,6 +26,8 @@ from . import db_limits
 from .utils import Timer, OperationResults
 
 logger = logging.getLogger(__name__)
+
+inserted_count = 1
 
 READ_STATEMENTS = [
     "SELECT * from pictures",
@@ -38,19 +41,19 @@ def insert_new_row() -> str:
     return "INSERT INTO pictures (lineColor, fillColor, shape1, shape2, artist) VALUES ('{}', '{}', '{}', '{}', '{}')"
 
 def update_lineColor() -> str:
-    return "UPDATE pictures SET lineColor={} WHERE fillColor={}"
+    return "UPDATE pictures SET lineColor={} WHERE id={}"
 
 def update_fillColor() -> str:
-    return "UPDATE pictures SET fillColor={} WHERE lineColor={}"
+    return "UPDATE pictures SET fillColor={} WHERE id={}"
 
 def update_shape1() -> str:
-    return "UPDATE pictures SET shape1={} WHERE shape2={}"
+    return "UPDATE pictures SET shape1={} WHERE id={}"
 
 def update_shape2() -> str:
-    return "UPDATE pictures SET shape2={} WHERE shape1={}"
+    return "UPDATE pictures SET shape2={} WHERE id={}"
 
 def update_artist() -> str:
-    return "UPDATE pictures SET artist={} WHERE artist={}"
+    return "UPDATE pictures SET artist={} WHERE id={}"
 
 UPDATE_COLOR = [
     update_lineColor(),
@@ -108,25 +111,28 @@ def read_operation(
 def write_operation(
     primary_pool: asyncpg.pool, replica_pool: asyncpg.pool
 ) -> Awaitable[OperationResults]:
+    global inserted_count
         # all write operations go to the primary db
     pool = primary_pool
     rand = random.randint(1,10)
     if rand < 8:
         stmt = insert_new_row()
+        inserted_count = inserted_count + 1
         return perform_operation(pool, "write", stmt.format(db_limits.random_color(), db_limits.random_color(), db_limits.random_shape(), db_limits.random_shape(), db_limits.random_artist()))
     elif rand == 8:
         stmt = random.choice(UPDATE_COLOR)
-        return perform_operation(pool, "write", stmt.format(db_limits.random_color(), db_limits.random_color()))
+        return perform_operation(pool, "write", stmt.format(db_limits.random_color(), random.randint(1,inserted_count)))
     elif rand == 9:
         stmt = random.choice(UPDATE_SHAPE)
-        return perform_operation(pool, "write", stmt.format(db_limits.random_shape(), db_limits.random_shape()))
+        return perform_operation(pool, "write", stmt.format(db_limits.random_shape(), random.randint(1,inserted_count)))
     elif rand == 10:
         stmt = update_artist()
-        return perform_operation(pool, "write", stmt.format(db_limits.random_artist(), db_limits.random_artist()))
+        return perform_operation(pool, "write", stmt.format(db_limits.random_artist(), random.randint(1,inserted_count)))
 
 async def perform_operation(
     pool: asyncpg.pool, operation: str, statement: str, timeout: float = 5
 ) -> OperationResults:
+    global inserted_count
     """Performs a simple transaction with the provided pool. """
     success, conn_timer, trans_timer = True, Timer(), Timer()
     # Run the operation without letting it exceed the timeout given
@@ -142,6 +148,8 @@ async def perform_operation(
         success = False
         logger.warning(f"Statement: {statement}")
         logger.warning("Transaction failed with exception: %s", ex)
+        if inserted_count > 1 and re.search("INSERT", statement):
+            inserted_count = inserted_count - 1
 
     return (
         operation,
