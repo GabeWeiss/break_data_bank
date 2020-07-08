@@ -50,6 +50,9 @@
   // iterating on all available jobs to spit out all of them, but for this, it's just testing purposes
   // so I felt it was easiest to go this route
   job_id = $_GET['job_id'];
+  db_key = $_GET['db_key'];
+  traffic_key = $_GET['traffic_key'];
+  cached_collection = $_GET['cached_collection'];
   start_time = -1;
 
   function drawCharts() {
@@ -73,7 +76,16 @@
     r_i = 0;
     w_i = 0;
     f_i = 0;
-    transactions = db.collection("events").doc("next2020").collection("transactions").doc(job_id).collection("transactions").orderBy("timestamp");
+    transactions = "";
+    if (job_id) {
+      transactions = db.collection("events").doc("next2020").collection("transactions").doc(job_id).collection("transactions").orderBy("timestamp");
+    }
+    else if (db_key && traffic_key && cached_collection) {
+      transactions = db.collection("events").doc("next2020").collection("cached").doc(db_key).collection("patterns").doc("3-2").collection("transactions").orderBy("timestamp");   
+    }
+    else {
+      console.log("Sorry, couldn't get transactions from the variables supplied. Need to supply either a job_id or a db_key, a traffic_key AND a cached_collection name");
+    }
     transactions.get().then(function(querySnapshot) {
       querySnapshot.forEach(function(doc) {
           d = doc.data();
