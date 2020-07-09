@@ -97,6 +97,11 @@ def validate_and_copy_data(jobs_filename, cached_location):
 
         if success:
             cache_ref = db.collection("events").document("next2020").collection(cached_location).document(key).collection("patterns").document(pattern).collection("transactions")
+            cache_check = cache_ref.limit(1).stream()
+            if len(list(cache_check)):
+                write_log(LOG_LVL_WARNING, f"Looks like job '{job_id}' was already moved into cache, not moving {key} {pattern} into cache.")
+                continue
+
             write_log(LOG_LVL_INFO, f" Moving transactions to staging cache")
             for t in transactions:
                 t_dict = t.to_dict()
