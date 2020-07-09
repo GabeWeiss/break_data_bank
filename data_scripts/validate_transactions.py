@@ -19,10 +19,12 @@ LATENCY_Z_SCORE_THRESHOLD = 8
 
 def validate_and_copy_data(jobs_filename, cached_location):
     write_log(LOG_LVL_INFO, "**** Beginning transactions validation ****")
-    success = True
+
+    moved_all_transactions = True
 
     JOBS_FILE = open(jobs_filename, "r")
     for job_id in JOBS_FILE:
+        success = True
         job_id = job_id[:-1] # strip off newline character
         write_log(LOG_LVL_INFO, f" Validating job '{job_id}'")
         job_reference = db.collection("events").document("next2020").collection("jobs").document(job_id)
@@ -53,6 +55,7 @@ def validate_and_copy_data(jobs_filename, cached_location):
         if transaction_count < TRANSACTION_COUNT_MINIMUM:
             write_log(LOG_LVL_WARNING, f"DB KEY: {key}, PATTERN: {pattern} does not meet minimum transaction count threshold")
             success = False
+            moved_all_transactions = False
 
         for t in transactions:
             t_dict = t.to_dict()
@@ -71,8 +74,9 @@ def validate_and_copy_data(jobs_filename, cached_location):
 
         series_time = end_timestamp - start_timestamp
         if (series_time) < MINIMUM_TIME_LENGTH:
-            write_log(LOG_LVL_WARNING, f"DB KEY: {key}, PATTERN: {pattern} didn't run for long enough. Only ran for {series_time} seconds.")
+            write_log(LOG_LVL_WARNING, f"DB KEY: {key}, PATTERN: {pattern} didn't run for long enough. Only ran for {series_time/1000.0} seconds.")
             success = False
+            moved_all_transactions = False
 
         # Usin the z-score to determine outliers
         # Fair warning, I do not fully understand outliers/statistics
@@ -87,11 +91,12 @@ def validate_and_copy_data(jobs_filename, cached_location):
         if len(a[0]) > 0:
             write_log(LOG_LVL_WARNING, f"DB KEY: {key}, PATTERN: {pattern} appears to have outliers")
             success = False
+            moved_all_transactions = False
 
         write_log(LOG_LVL_INFO, f"  {transaction_count} entries validated")
 
         if success:
-            cache_ref = db.collection("events").document("next2020").collection(TMP_CACHED_DOC_NAME).document(key).collection("patterns").document(pattern).collection("transactions")
+            cache_ref = db.collection("events").document("next2020").collection(cached_location).document(key).collection("patterns").document(pattern).collection("transactions")
             write_log(LOG_LVL_INFO, f" Moving transactions to staging cache")
             for t in transactions:
                 t_dict = t.to_dict()
@@ -99,5 +104,4 @@ def validate_and_copy_data(jobs_filename, cached_location):
 
 
     JOBS_FILE.close()
-    return success
-
+    return moved_all_transactions

@@ -20,7 +20,7 @@ JOBS_FILENAME = "jobs_to_investigate.txt"
 TMP_CACHED_DOC_NAME = "cached_staged"
 
 if args.validate_only:
-    success = validate_and_copy_data(JOBS_FILENAME, TMP_CACHED_DOC_NAME)
+    success = validate.validate_and_copy_data(JOBS_FILENAME, TMP_CACHED_DOC_NAME)
     if not success:
         print("There was a problem validating or moving the transactions. Check logs for more details.\n")
         sys.exit(1)
