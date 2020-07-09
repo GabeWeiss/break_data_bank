@@ -13,7 +13,7 @@ from utils_breaking import *
 parser = argparse.ArgumentParser()
 # TODO: Add ability to set seed and transfer directly to production
 #parser.add_argument("-s", "--seed")
-parser.add_argument("--validate_only")
+parser.add_argument("--validate_only", action='store_true')
 args = parser.parse_args()
 
 JOBS_FILENAME = "jobs_to_investigate.txt"
@@ -133,7 +133,7 @@ def do_data_run():
             run_result = run_data(pattern, key)
             write_log(LOG_LVL_INFO, f"Ran {key}, {pattern}: {run_result}")
             if run_result != None:
-                JOBS_FILE.write(run_result)
+                JOBS_FILE.write(f"{run_result}\n")
 #                output = f"./transfer.sh {key} {pattern} {run_result}\n"
 #                print(f"{output}\n")
 
