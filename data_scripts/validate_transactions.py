@@ -109,4 +109,5 @@ def validate_and_copy_data(jobs_filename, cached_location):
 
 
     JOBS_FILE.close()
+    write_log(LOG_LVL_INFO, "**** Finished validation ****")
     return moved_all_transactions
