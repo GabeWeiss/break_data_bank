@@ -1,10 +1,21 @@
+import argparse
 import sys
 
 from google.cloud import firestore
 
+parser = argparse.ArgumentParser()
+# TODO: Add ability to set seed and transfer directly to production
+#parser.add_argument("-s", "--seed")
+parser.add_argument("--seed", required=True)
+args = parser.parse_args()
+
 db = firestore.Client()
 
-SEED = 0
+try:
+    SEED = int(args.seed)
+except:
+    print("You need to specify an integer for the seed.")
+    sys.exit(1)
 
 instance_keys = [
     "sql-1-1", "sql-1-2", "sql-1-3",
@@ -22,26 +33,31 @@ traffic_keys = [
     "1-1", "1-2", "1-3", "2-1", "2-2", "2-3", "3-1", "3-2", "3-3"
 ]
 
-for instance in instance_keys:
-    print(f"Running for instance: {instance}")
-    db_info = instance.split("-")
-    db_type = db_info[0]
-    if db_type == -1:
-        print("Couldn't get db_type")
-        sys.exit(1)
-    try:
-        db_size = int(db_info[1])
-    except:
-        print("Couldn't get the db information properly")
-        sys.exit(1)
+def transfer():
+    for instance in instance_keys:
+        print(f"Running for instance: {instance}")
 
-    for traffic in traffic_keys:
-        source_collection_ref = db.collection("events").document("next2020").collection("cached_staged").document(instance).collection("patterns").document(traffic).collection("transactions")
+        for traffic in traffic_keys:
+            source_collection_ref = db.collection("events").document("next2020").collection("cached_staged").document(instance).collection("patterns").document(traffic).collection("transactions")
 
-        target_collection_ref = db.collection("events").document("next2020").collection("cached").document(instance).collection("patterns").document(traffic).collection("transactions")
+            target_collection_ref = db.collection("events").document("next2020").collection("cached").document(instance).collection("patterns").document(traffic).collection("transactions")
 
-        transactions = source_collection_ref.stream()
-        for t in transactions:
-            doc_dict = t.to_dict()
-            doc_dict['seed'] = SEED
-            target_collection_ref.add(doc_dict)
+            transactions = source_collection_ref.stream()
+            for t in transactions:
+                doc_dict = t.to_dict()
+                doc_dict['seed'] = SEED
+                target_collection_ref.add(doc_dict)
+
+def will_overwrite():
+    for instance in instance_keys:
+        target_collection_ref = db.collection("events").document("next2020").collection("cached").document(instance).collection("patterns").document("1-1").collection("transactions")
+        targets = target_collection_ref.limit(1).where('seed', '==', SEED).stream()
+        if len(list(targets)) > 0:
+            return True
+    return False
+
+if will_overwrite():
+    print("This would overwrite existing data in the database. Please delete any transactions in the way before continuing.")
+    sys.exit(1)
+
+transfer()
