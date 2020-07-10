@@ -53,6 +53,7 @@
   db_key = $_GET['db_key'];
   traffic_key = $_GET['traffic_key'];
   cached_collection = $_GET['cached_collection'];
+  seed = $_GET['seed'];
   start_time = -1;
 
   function drawCharts() {
@@ -81,7 +82,7 @@
       transactions = db.collection("events").doc("next2020").collection("transactions").doc(job_id).collection("transactions").orderBy("timestamp");
     }
     else if (db_key && traffic_key && cached_collection) {
-      transactions = db.collection("events").doc("next2020").collection("cached").doc(db_key).collection("patterns").doc("3-2").collection("transactions").orderBy("timestamp");   
+      transactions = db.collection("events").doc("next2020").collection(cached_collection).doc(db_key).collection("patterns").doc(traffic_key).collection("transactions").orderBy("timestamp");   
     }
     else {
       console.log("Sorry, couldn't get transactions from the variables supplied. Need to supply either a job_id or a db_key, a traffic_key AND a cached_collection name");
@@ -89,6 +90,9 @@
     transactions.get().then(function(querySnapshot) {
       querySnapshot.forEach(function(doc) {
           d = doc.data();
+          if (d['seed'] != seed) {
+            return;
+          }
           // First time we do this, the start time needs to be set to our first timestamp
           if (start_time == -1) {
               start_time = d['timestamp'];
@@ -96,7 +100,7 @@
 
           if (d['query_action'] == "read") {
             x = (d['timestamp'] - start_time) / 1000;
-            a = [x, d['average_latency'] * 100];
+            a = [x, d['average_latency'] * 1000];
             read_table[r_i] = a;
             r_i = r_i + 1;
           }
