@@ -23,7 +23,7 @@ The architectural flow for the demo goes:
 
 ![Architecture Diagram](/images/architecture.png)
 
-Front End (the demo front-end, which isn't in this repo, is built in [Angular](https://angularjs.org/)) issues an HTTP POST request to a Python Quart server (Quart is an async module that uses Flask), called the 'orchestrator' which runs on Cloud Run ([Orchestrator code](/orchestrator-container)).
+Front End (the demo front-end, which isn't in this repo, is built in [Angular](https://angularjs.org/)) issues an HTTP POST request to a [Python Quart](https://gitlab.com/pgjones/quart) server (Quart is an async module that uses [Flask](https://flask.palletsprojects.com/en/1.1.x/)), called the 'orchestrator' which runs on Cloud Run ([Orchestrator code](/orchestrator-container)).
 
 There are three types of requests the orchestrator accepts:
 
