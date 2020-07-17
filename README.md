@@ -16,7 +16,7 @@ It uses many Google Cloud products:
 
 The architectural flow for the demo goes:
 
-![Architecture Diagram](/images/architecture.svg)
+![Architecture Diagram](/images/architecture.png)
 
 Front End (in our case the demo front-end, which isn't in this repo, is built in [Angular](https://angularjs.org/)) issues an HTTP POST request  to a Python Quart server (Quart is an async module that uses Flask), called the 'orchestrator'. Orchestrator
 
