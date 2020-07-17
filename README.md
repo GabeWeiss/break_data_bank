@@ -10,14 +10,14 @@ This repo holds the back-end code for a demo built for Google Cloud Next 2020's 
 - 3: Spikey (alternates low and high frequency)
 
 It uses many Google Cloud products:
-[Cloud SQL](https://cloud.google.com/sql)
-[Cloud Spanner](https://cloud.google.com/spanner)
-[Cloud Run](https://cloud.google.com/run)
-[Container Registry](https://cloud.google.com/container-registry)
-[Kubernetes Engine (GKE)](https://cloud.google.com/kubernetes-engine)
-[Pub/Sub](https://cloud.google.com/pubsub)
-[Dataflow](https://cloud.google.com/dataflow)
-[Firestore](https://cloud.google.com/firestore)
+- [Cloud SQL](https://cloud.google.com/sql)
+- [Cloud Spanner](https://cloud.google.com/spanner)
+- [Cloud Run](https://cloud.google.com/run)
+- [Container Registry](https://cloud.google.com/container-registry)
+- [Kubernetes Engine (GKE)](https://cloud.google.com/kubernetes-engine)
+- [Pub/Sub](https://cloud.google.com/pubsub)
+- [Dataflow](https://cloud.google.com/dataflow)
+- [Firestore](https://cloud.google.com/firestore)
 
 The architectural flow for the demo goes:
 
