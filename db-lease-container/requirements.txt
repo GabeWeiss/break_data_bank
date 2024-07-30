@@ -2,6 +2,6 @@ google-cloud-firestore==1.6.2
 google-cloud-spanner==1.15.0
 grpcio==1.53.2
 grpcio-gcp==0.2.2
-asyncpg==0.20.1
+asyncpg==0.21.0
 Quart==0.11.1
 Hypercorn==0.7.0
